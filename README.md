@@ -1,26 +1,26 @@
 # CliX
 
-Extended command line interface.
-
-
+An intelligent command line interface for ChimeraX.
 
 ## How to use
 
 1. Clone this repository
     ```shell
-    git clone git+https://github.com/hanjinliu/ChimeraX-command-palette
+    git clone git+https://github.com/hanjinliu/ChimeraX-clix
     ```
     ... or you can manually download the contents from the "<> Code" pulldown menu in this page.
 
-2. Install command using ChimeraX command line interface
+2. Install command using ChimeraX built-int command line interface
     ```shell
-    devel install "path/to/ChimeraX-command-palette"
+    devel install "path/to/ChimeraX-clix"
     ```
 
-3. Register command palette to any of the function keys. For example, you can assign "F2" key to open a command palette by running following command in the ChimeraX command line interface.
-    ```shell
-    fun F2 "command palette"
-    ```
+3. If you want to replace the built-in command line interface with `clix`, open
+   `Favorites > Settings...` and define a startup as follows:
+   ```shell
+   ui tool hide "command line interface"
+   ui tool show clix
+   ```
 
 ## Issues/Requests
 
