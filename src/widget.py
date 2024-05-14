@@ -22,6 +22,7 @@ class ColorPreset:
     COMMAND = "#AF7500"
     MODEL = "#CF2424"
     KEYWORD = "#808080"
+    NUMBER = "#2CA32C"
 
 class QCompletionPopup(QtW.QListWidget):
     changed = QtCore.Signal(int, str)
@@ -48,12 +49,17 @@ class QCompletionPopup(QtW.QListWidget):
     def focusInEvent(self, e: QtGui.QFocusEvent) -> None:
         self.parentWidget().setFocus()
     
-    def add_items_with_highlight(self, items: list[str], prefix: str):
-        for item in items:
+    def add_items_with_highlight(self, cmp: CompletionState):
+        prefix = cmp.text
+        for _i, item in enumerate(cmp.completions):
             list_widget_item = QtW.QListWidgetItem()
             if item.startswith(prefix):
                 prefix, item = item[:len(prefix)], item[len(prefix):]
-            label = QtW.QLabel(f"<b>{_colored(prefix, ColorPreset.MATCH)}</b>{item}")
+            text = f"<b>{_colored(prefix, ColorPreset.MATCH)}</b>{item}"
+            if cmp.info is not None:
+                info = cmp.info[_i]
+                text += f"  ({info})"
+            label = QtW.QLabel(text)
             list_widget_item.setData(Qt.ItemDataRole.UserRole, prefix + item)
             self.addItem(list_widget_item)
             self.setItemWidget(list_widget_item, label)
@@ -125,6 +131,7 @@ class CompletionState(NamedTuple):
     text: str
     completions: list[str]
     command: str | None = None
+    info: list[str] | None = None
     
     @classmethod
     def empty(cls) -> CompletionState:
@@ -167,11 +174,13 @@ class QCommandLineEdit(QtW.QTextEdit):
         return self.toPlainText().replace("\u2029", "\n")
 
     def run_command(self):
-        for line in self.text().split("\n"):
-            if line.strip() == "":
-                continue
-            run(self._session, line)
-        self.setText("")
+        try:
+            for line in self.text().split("\n"):
+                if line.strip() == "":
+                    continue
+                run(self._session, line)
+        finally:
+            self.setText("")
 
     def _list_selection_changed(self, idx: int, text: str):
         if winfo := self._commands.get(text, None):
@@ -187,7 +196,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         list_widget.setParent(self, Qt.WindowType.ToolTip)
         list_widget.setFont(self.font())
         items = self._current_completion_state.completions
-        list_widget.add_items_with_highlight(items, self._current_completion_state.text)
+        list_widget.add_items_with_highlight(self._current_completion_state)
         if len(items) == 0:
             # don't show the list widget if there are no items
             return
@@ -221,18 +230,20 @@ class QCommandLineEdit(QtW.QTextEdit):
         # command completion
         matched_commands: list[str] = []
         current_command: str | None = None
+        text_lstrip = text.lstrip()
+        text_strip = text.strip()
         for command_name in self._commands.keys():
-            if command_name.startswith(text.lstrip()):
+            if command_name.startswith(text_lstrip):
                 # if `text` is "toolshed", add
                 #   toolshed list
                 #   toolshed install ...
                 # to `matched_commands`
                 matched_commands.append(command_name)
-            elif text.strip().startswith(command_name):
+            elif text_strip.startswith(command_name):
                 current_command = command_name
         
         if len(matched_commands) > 0:
-            if len(matched_commands) == 1 and matched_commands[0] == text.strip():
+            if len(matched_commands) == 1 and matched_commands[0] == text_strip:
                 # not need to show the completion list
                 pass
             elif " " not in text:
@@ -241,7 +252,7 @@ class QCommandLineEdit(QtW.QTextEdit):
                 #   toolshed install
                 # then `base_commands` is
                 #   toolshed
-                base_commands: dict[str, None] = {}
+                base_commands: dict[str, None] = {}  # ordered set
                 for cmd in matched_commands:
                     base_commands[cmd.split(" ")[0]] = None
                 matched_commands = list(base_commands.keys()) + matched_commands
@@ -251,7 +262,17 @@ class QCommandLineEdit(QtW.QTextEdit):
         *pref, last_word = text.rsplit(" ")
         if pref == [] or last_word == "":
             return CompletionState(text, [], current_command)
-        if winfo := self._commands.get(" ".join(pref).strip(), None):
+        if last_word.startswith("#"):
+            # model ID completion
+            comps = []
+            info = []
+            for model in self._session.models.list():
+                comps.append("#" + ".".join(str(_id) for _id in model.id))
+                info.append(model.name)
+            return CompletionState(last_word, comps, current_command, info)
+
+        cmd = current_command or self._current_completion_state.command
+        if winfo := self._commands.get(cmd, None):
             comp_list: list[str] = []
             cmd_desc = resolve_cmd_desc(winfo)
             if cmd_desc is None:
@@ -291,7 +312,7 @@ class QCommandLineEdit(QtW.QTextEdit):
                 self._list_widget.close()
                 self._list_widget = None
                 return
-            self._list_widget.add_items_with_highlight(items, text)
+            self._list_widget.add_items_with_highlight(self._current_completion_state)
             self._list_widget.move(self.mapToGlobal(self.cursorRect().bottomLeft()))
             self._list_widget.resizeForContents()
         return
@@ -367,9 +388,7 @@ class QCommandLineEdit(QtW.QTextEdit):
                     return True
             
         elif event.type() == QtCore.QEvent.Type.Move:
-            if self._list_widget is not None:
-                self._list_widget.close()
-                self._list_widget = None
+            self._close_popups()
         return super().event(event)
 
     def set_height_for_block_counts(self):
@@ -397,6 +416,7 @@ class QCommandHighlighter(QtGui.QSyntaxHighlighter):
     def __init__(self, parent: QCommandLineEdit):
         super().__init__(parent.document())
         self._command_strings = set(parent._commands.keys())
+        self._parent = parent
     
     def highlightBlock(self, text: str):
         cur_command = []
@@ -411,14 +431,38 @@ class QCommandHighlighter(QtGui.QSyntaxHighlighter):
                 fmt.setForeground(QtGui.QColor(ColorPreset.COMMAND))
                 fmt.setFontWeight(QtGui.QFont.Weight.Bold)
                 self.setFormat(cur_start, next_stop, fmt)
-                cur_start = next_stop + 1
-            elif word.startswith("#"):
+            elif word.startswith(("#", "/", ":", "@")):
                 fmt = QtGui.QTextCharFormat()
                 fmt.setForeground(QtGui.QColor(ColorPreset.MODEL))
                 self.setFormat(cur_start, next_stop, fmt)
-                cur_start = next_stop + 1
+            elif self._is_keyword(word):
+                fmt = QtGui.QTextCharFormat()
+                fmt.setForeground(QtGui.QColor(ColorPreset.KEYWORD))
+                self.setFormat(cur_start, next_stop, fmt)
+            elif self._is_real_number(word):
+                fmt = QtGui.QTextCharFormat()
+                fmt.setForeground(QtGui.QColor(ColorPreset.NUMBER))
+                self.setFormat(cur_start, next_stop, fmt)
             else:
                 self.setFormat(cur_start, next_stop, QtGui.QTextCharFormat())
+            cur_start = next_stop + 1
             cur_stop += len(word) + 1
             
         return None
+
+    def _is_keyword(self, word: str) -> bool:
+        cmd = self._parent._current_completion_state.command
+        if cmd is None:
+            return False
+        winfo = self._parent._commands[cmd]
+        cmd_desc = resolve_cmd_desc(winfo)
+        if cmd_desc is None:
+            return False
+        return word in cmd_desc._keyword.keys()
+    
+    def _is_real_number(self, word: str) -> bool:
+        try:
+            float(word)
+            return True
+        except Exception:
+            return False
