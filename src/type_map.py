@@ -58,9 +58,15 @@ def _dyn_enum_to_str(ann: DynamicEnum):
 def _bounded_to_str(ann: Bounded):
     base_anno = parse_annotation(ann.anno)
     if ann.inclusive:
-        return f"{base_anno} ({ann.min} &le; X &le; {ann.max})"
+        op = "&le;"
     else:
-        return f"{base_anno} ({ann.min} &lt; X &lt; {ann.max})"
+        op = "&lt;"
+    if ann.min is not None:
+        if ann.max is not None:
+            return f"{base_anno} ({ann.min} {op} X {op} {ann.max})"
+        return f"{base_anno} ({ann.min} {op} X)"
+    else:
+        return f"{base_anno} (X {op} {ann.max})"
 
 def parse_annotation(ann) -> str:
     if isinstance(ann, type):

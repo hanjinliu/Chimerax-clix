@@ -44,6 +44,7 @@ class QCompletionPopup(QtW.QListWidget):
         )
 
     def _on_item_clicked(self, item: QtW.QListWidgetItem):
+        self.setCurrentItem(item)
         self.parentWidget()._complete_with_current_item()
 
     def focusInEvent(self, e: QtGui.QFocusEvent) -> None:
@@ -51,46 +52,55 @@ class QCompletionPopup(QtW.QListWidget):
     
     def add_items_with_highlight(self, cmp: CompletionState):
         prefix = cmp.text
-        for _i, item in enumerate(cmp.completions):
+        
+        # adjust item count
+        for _ in range(len(cmp.completions) - self.count()):
             list_widget_item = QtW.QListWidgetItem()
+            label = QtW.QLabel()
+            self.addItem(list_widget_item)
+            self.setItemWidget(list_widget_item, label)
+        for _ in range(self.count() - len(cmp.completions)):
+            self.takeItem(0)
+        
+        for _i, item in enumerate(cmp.completions):
             if item.startswith(prefix):
                 prefix, item = item[:len(prefix)], item[len(prefix):]
             text = f"<b>{_colored(prefix, ColorPreset.MATCH)}</b>{item}"
             if cmp.info is not None:
                 info = cmp.info[_i]
                 text += f"  ({info})"
-            label = QtW.QLabel(text)
+            list_widget_item = self.item(_i)
+            label = self.itemWidget(list_widget_item)
+            label.setText(text)
             list_widget_item.setData(Qt.ItemDataRole.UserRole, prefix + item)
-            self.addItem(list_widget_item)
-            self.setItemWidget(list_widget_item, label)
+
+    def set_row(self, idx: int):
+        self.setCurrentRow(idx)
+        self.scrollToItem(
+            self.currentItem(), QtW.QAbstractItemView.ScrollHint.EnsureVisible
+        )
+        self.changed.emit(idx, self.currentItem().data(Qt.ItemDataRole.UserRole))
 
     def goto_next(self):
-        self.setCurrentRow((self.currentRow() + 1) % self.count())
+        self.set_row((self.currentRow() + 1) % self.count())
 
     def goto_next_page(self):
         h0 = self.sizeHintForRow(0)
-        self.setCurrentRow(
-            min(self.currentRow() + self.height() // h0, self.count() - 1)
-        )
+        self.set_row(min(self.currentRow() + self.height() // h0, self.count() - 1))
 
     def goto_last(self):
-        self.setCurrentRow(self.count() - 1)
+        self.set_row(self.count() - 1)
 
     def goto_previous(self):
-        self.setCurrentRow((self.currentRow() - 1) % self.count())
+        self.set_row((self.currentRow() - 1) % self.count())
 
     def goto_previous_page(self):
         h0 = self.sizeHintForRow(0)
-        self.setCurrentRow(max(self.currentRow() - self.height() // h0, 0))
+        self.set_row(max(self.currentRow() - self.height() // h0, 0))
 
     def goto_first(self):
-        self.setCurrentRow(0)
+        self.set_row(0)
 
-    def currentChanged(self, current: QtCore.QModelIndex, previous: QtCore.QModelIndex):
-        idx = current.row()
-        if item := self.item(idx):
-            text = item.data(Qt.ItemDataRole.UserRole)
-            self.changed.emit(idx, text)
         
 class QTooltipPopup(QtW.QTextEdit):
     def __init__(self, parent=None):
@@ -146,8 +156,8 @@ class QCommandLineEdit(QtW.QTextEdit):
         self.textChanged.connect(self._on_text_changed)
         self._commands = commands
         self._current_completion_state = CompletionState.empty()
-        self._list_widget = None
-        self._tooltip_widget = None
+        self._list_widget = self._create_list_widget()
+        self._tooltip_widget = self._create_tooltip_widget()
         self._session = session
         self._highlighter = QCommandHighlighter(self)
         self.set_height_for_block_counts()
@@ -163,7 +173,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         return True
 
     def show_completion(self, allow_auto: bool = True):
-        if self._list_widget is not None:
+        if self._list_widget.isVisible():
             self._complete_with_current_item()
             return
         if not self._update_completion_state(allow_auto):
@@ -184,44 +194,30 @@ class QCommandLineEdit(QtW.QTextEdit):
 
     def _list_selection_changed(self, idx: int, text: str):
         if winfo := self._commands.get(text, None):
-            if self._tooltip_widget is None:
-                self._create_tooltip_widget()
+            self._try_show_tooltip_widget()
             item_rect = self._list_widget.visualItemRect(self._list_widget.item(idx))
+            rect = self._list_widget.rect()
+            rel_dist_from_bottom = (rect.bottom() - item_rect.bottom()) / rect.height()
             item_rect.setX(item_rect.x() + 12)
-            self._tooltip_widget.move(self._list_widget.mapToGlobal(item_rect.topRight()))
+            if rel_dist_from_bottom > 0.5:
+                pos = item_rect.topRight()
+            else:
+                pos = item_rect.bottomRight() - QtCore.QPoint(0, self._tooltip_widget.height())
+            self._tooltip_widget.move(self._list_widget.mapToGlobal(pos))
             self._tooltip_widget.setWordInfo(winfo)
         
     def _create_list_widget(self):
         list_widget = QCompletionPopup()
         list_widget.setParent(self, Qt.WindowType.ToolTip)
         list_widget.setFont(self.font())
-        items = self._current_completion_state.completions
-        list_widget.add_items_with_highlight(self._current_completion_state)
-        if len(items) == 0:
-            # don't show the list widget if there are no items
-            return
-        list_widget.resizeForContents()
-        list_widget.move(self.mapToGlobal(self.cursorRect().bottomRight()))
         list_widget.changed.connect(self._list_selection_changed)
-        list_widget.show()
-        self._list_widget = list_widget
-        self.setFocus()
+        return list_widget
     
     def _create_tooltip_widget(self):
         tooltip_widget = QTooltipPopup()
         tooltip_widget.setParent(self, Qt.WindowType.ToolTip)
         tooltip_widget.setFont(self.font())
-        if self._list_widget is not None and self._list_widget.isVisible():
-            corner = self._list_widget.rect().topRight()
-            corner.setX(corner.x() + 12)
-            tooltip_widget.move(
-                self._list_widget.mapToGlobal(corner)
-            )
-        else:
-            tooltip_widget.move(self.mapToGlobal(self.cursorRect().bottomRight()))
-        tooltip_widget.show()
-        self._tooltip_widget = tooltip_widget
-        self.setFocus()
+        return tooltip_widget
 
     def _get_completion_list(self, text: str) -> CompletionState:
         if text == "":
@@ -241,7 +237,6 @@ class QCommandLineEdit(QtW.QTextEdit):
                 matched_commands.append(command_name)
             elif text_strip.startswith(command_name):
                 current_command = command_name
-        
         if len(matched_commands) > 0:
             if len(matched_commands) == 1 and matched_commands[0] == text_strip:
                 # not need to show the completion list
@@ -264,6 +259,7 @@ class QCommandLineEdit(QtW.QTextEdit):
             return CompletionState(text, [], current_command)
         if last_word.startswith("#"):
             # model ID completion
+            # "#" -> "#1 (model name)" etc.
             comps = []
             info = []
             for model in self._session.models.list():
@@ -284,17 +280,14 @@ class QCommandLineEdit(QtW.QTextEdit):
         return CompletionState(text, [], current_command)
 
     def _on_text_changed(self):
-        if self._list_widget is None:
-            if self._update_completion_state(False):
-                self._create_list_widget()
+        self._update_completion_state(False)
         self._try_show_list_widget()
-        if self._list_widget is not None:
+        if self._list_widget.isVisible():
             self._list_widget.setCurrentRow(0)
 
         if self._current_completion_state.command is None:
-            if self._tooltip_widget is not None:
-                self._tooltip_widget.deleteLater()
-                self._tooltip_widget = None
+            if self._tooltip_widget.isVisible():
+                self._tooltip_widget.hide()
         else:
             self._try_show_tooltip_widget()
             cmd = self._commands[self._current_completion_state.command]
@@ -303,26 +296,31 @@ class QCommandLineEdit(QtW.QTextEdit):
         return None
 
     def _try_show_list_widget(self):
-        if self._list_widget is not None:
-            self._update_completion_state(allow_auto=False)
-            text = self._current_completion_state.text
-            self._list_widget.clear()
-            items = self._current_completion_state.completions
-            if len(items) == 0 or len(text) == 0:
-                self._list_widget.close()
-                self._list_widget = None
-                return
-            self._list_widget.add_items_with_highlight(self._current_completion_state)
-            self._list_widget.move(self.mapToGlobal(self.cursorRect().bottomLeft()))
-            self._list_widget.resizeForContents()
+        self._update_completion_state(allow_auto=False)
+        text = self._current_completion_state.text
+        items = self._current_completion_state.completions
+        if len(items) == 0 or len(text) == 0:
+            self._list_widget.hide()
+            return
+        self._list_widget.add_items_with_highlight(self._current_completion_state)
+        if not self._list_widget.isVisible():
+            self._list_widget.show()
+        self._list_widget.move(self.mapToGlobal(self.cursorRect().bottomLeft()))
+        self._list_widget.resizeForContents()
         return
     
     def _try_show_tooltip_widget(self):
-        if self._tooltip_widget is not None:
-            self._tooltip_widget.deleteLater()
-            self._tooltip_widget = None
-        self._tooltip_widget = None
-        self._create_tooltip_widget()
+        if self._list_widget.isVisible() and self._list_widget.isVisible():
+            corner = self._list_widget.rect().topRight()
+            corner.setX(corner.x() + 12)
+            self._tooltip_widget.move(
+                self._list_widget.mapToGlobal(corner)
+            )
+        else:
+            self._tooltip_widget.move(self.mapToGlobal(self.cursorRect().bottomRight()))
+        if not self._tooltip_widget.isVisible():
+            self._tooltip_widget.show()
+        self.setFocus()
         return None
 
     def _complete_with(self, comp: str):
@@ -339,7 +337,7 @@ class QCommandLineEdit(QtW.QTextEdit):
                 self.show_completion()
                 return True
             elif event.key() == Qt.Key.Key_Down:
-                if self._list_widget is not None:
+                if self._list_widget.isVisible():
                     if event.modifiers() == Qt.KeyboardModifier.NoModifier:
                         self._list_widget.goto_next()
                     elif event.modifiers() == Qt.KeyboardModifier.ControlModifier:
@@ -348,11 +346,11 @@ class QCommandLineEdit(QtW.QTextEdit):
                         return False
                     return True
             elif event.key() == Qt.Key.Key_PageDown:
-                if self._list_widget is not None:
+                if self._list_widget.isVisible():
                     self._list_widget.goto_next_page()
                     return True
             elif event.key() == Qt.Key.Key_Up:
-                if self._list_widget is not None:
+                if self._list_widget.isVisible():
                     if event.modifiers() == Qt.KeyboardModifier.NoModifier:
                         self._list_widget.goto_previous()
                     elif event.modifiers() == Qt.KeyboardModifier.ControlModifier:
@@ -363,12 +361,12 @@ class QCommandLineEdit(QtW.QTextEdit):
                 # TODO: search for the history
 
             elif event.key() == Qt.Key.Key_PageUp:
-                if self._list_widget is not None:
+                if self._list_widget.isVisible():
                     self._list_widget.goto_previous_page()
                     return True
             elif event.key() == Qt.Key.Key_Return:
                 if event.modifiers() == Qt.KeyboardModifier.NoModifier:
-                    if self._list_widget is not None:
+                    if self._list_widget.isVisible():
                         self._complete_with_current_item()
                     else:
                         self.run_command()
@@ -380,7 +378,7 @@ class QCommandLineEdit(QtW.QTextEdit):
                     self._current_completion_state = CompletionState.empty()
                     return True
             elif event.key() == Qt.Key.Key_Escape:
-                if self._list_widget is not None or self._tooltip_widget is not None:
+                if self._list_widget.isVisible() or self._tooltip_widget.isVisible():
                     self._close_popups()
                     return True
                 if self.text():
@@ -404,12 +402,10 @@ class QCommandLineEdit(QtW.QTextEdit):
         return super().focusOutEvent(a0)
 
     def _close_popups(self):
-        if self._list_widget is not None:
-            self._list_widget.deleteLater()
-            self._list_widget = None
-        if self._tooltip_widget is not None:
-            self._tooltip_widget.deleteLater()
-            self._tooltip_widget = None
+        if self._list_widget.isVisible():
+            self._list_widget.hide()
+        if self._tooltip_widget.isVisible():
+            self._tooltip_widget.hide()
         return None
 
 class QCommandHighlighter(QtGui.QSyntaxHighlighter):
