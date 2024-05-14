@@ -16,6 +16,8 @@ def resolve_cmd_desc(winfo: WordInfo) -> CmdDesc | None:
     if winfo.cmd_desc is None:
         return None
     if not hasattr(winfo.cmd_desc, "function"):
+        if winfo.subcommands:
+            return None
         winfo.cmd_desc.proxy()
     if not hasattr(winfo.cmd_desc, "function"):
         return None

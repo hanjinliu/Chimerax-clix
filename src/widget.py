@@ -7,6 +7,7 @@ from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
 from .types import WordInfo, resolve_cmd_desc
 from .type_map import parse_annotation
+from ._history import CommandHistory
 from chimerax.core.commands import run
 
 if sys.platform == "win32":
@@ -109,12 +110,13 @@ class QTooltipPopup(QtW.QTextEdit):
         self.setReadOnly(True)
         self.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
     
-    def setWordInfo(self, word_info: WordInfo):
+    def setWordInfo(self, word_info: WordInfo, command_name: str):
         cmd_desc = resolve_cmd_desc(word_info)
         if cmd_desc is None:
             self.setText("")
+            self.hide()
             return None
-        strings: list[str] = []
+        strings = [f"<b>{_colored(command_name, ColorPreset.COMMAND)}</b>"]
         if cmd_desc.synopsis is not None:
             strings.append(cmd_desc.synopsis.replace("\n", "<br>"))
         for name, typ in cmd_desc._required.items():
@@ -161,6 +163,8 @@ class QCommandLineEdit(QtW.QTextEdit):
         self._session = session
         self._highlighter = QCommandHighlighter(self)
         self.set_height_for_block_counts()
+        self._history = CommandHistory.load()
+        self._history_iter = self._history.iter_bidirectional()
 
     def _update_completion_state(self, allow_auto: bool = False) -> bool:
         cursor = self.textCursor()
@@ -184,27 +188,34 @@ class QCommandLineEdit(QtW.QTextEdit):
         return self.toPlainText().replace("\u2029", "\n")
 
     def run_command(self):
+        code = self.text()
         try:
-            for line in self.text().split("\n"):
+            for line in code.split("\n"):
                 if line.strip() == "":
                     continue
                 run(self._session, line)
         finally:
             self.setText("")
+        if code:
+            self._history.append_unique(code)
+            self._history.save()
+
+    def _adjust_tooltip_for_list(self, idx: int):
+        item_rect = self._list_widget.visualItemRect(self._list_widget.item(idx))
+        rect = self._list_widget.rect()
+        rel_dist_from_bottom = (rect.bottom() - item_rect.bottom()) / rect.height()
+        item_rect.setX(item_rect.x() + 10)
+        if rel_dist_from_bottom > 0.5:
+            pos = item_rect.topRight()
+        else:
+            pos = item_rect.bottomRight() - QtCore.QPoint(0, self._tooltip_widget.height())
+        self._tooltip_widget.move(self._list_widget.mapToGlobal(pos))
 
     def _list_selection_changed(self, idx: int, text: str):
         if winfo := self._commands.get(text, None):
+            self._adjust_tooltip_for_list(idx)
+            self._tooltip_widget.setWordInfo(winfo, text)
             self._try_show_tooltip_widget()
-            item_rect = self._list_widget.visualItemRect(self._list_widget.item(idx))
-            rect = self._list_widget.rect()
-            rel_dist_from_bottom = (rect.bottom() - item_rect.bottom()) / rect.height()
-            item_rect.setX(item_rect.x() + 12)
-            if rel_dist_from_bottom > 0.5:
-                pos = item_rect.topRight()
-            else:
-                pos = item_rect.bottomRight() - QtCore.QPoint(0, self._tooltip_widget.height())
-            self._tooltip_widget.move(self._list_widget.mapToGlobal(pos))
-            self._tooltip_widget.setWordInfo(winfo)
         
     def _create_list_widget(self):
         list_widget = QCompletionPopup()
@@ -276,7 +287,9 @@ class QCommandLineEdit(QtW.QTextEdit):
             for _k in cmd_desc._keyword.keys():
                 if _k.startswith(last_word):
                     comp_list.append(_k)
-            return CompletionState(last_word, comp_list, current_command)
+            return CompletionState(
+                last_word, comp_list, current_command, ["<i>keyword</i>"] * len(comp_list)
+            )
         return CompletionState(text, [], current_command)
 
     def _on_text_changed(self):
@@ -289,9 +302,10 @@ class QCommandLineEdit(QtW.QTextEdit):
             if self._tooltip_widget.isVisible():
                 self._tooltip_widget.hide()
         else:
+            name = self._current_completion_state.command
+            cmd = self._commands[name]
+            self._tooltip_widget.setWordInfo(cmd, name)
             self._try_show_tooltip_widget()
-            cmd = self._commands[self._current_completion_state.command]
-            self._tooltip_widget.setWordInfo(cmd)
         self.set_height_for_block_counts()
         return None
 
@@ -310,17 +324,16 @@ class QCommandLineEdit(QtW.QTextEdit):
         return
     
     def _try_show_tooltip_widget(self):
-        if self._list_widget.isVisible() and self._list_widget.isVisible():
-            corner = self._list_widget.rect().topRight()
-            corner.setX(corner.x() + 12)
-            self._tooltip_widget.move(
-                self._list_widget.mapToGlobal(corner)
-            )
-        else:
-            self._tooltip_widget.move(self.mapToGlobal(self.cursorRect().bottomRight()))
-        if not self._tooltip_widget.isVisible():
+        if not self._tooltip_widget.isVisible() and self._tooltip_widget.toPlainText() != "":
             self._tooltip_widget.show()
-        self.setFocus()
+            self.setFocus()
+        if self._tooltip_widget.isVisible():
+            if self._list_widget.isVisible():
+                # show next to the cursor
+                self._adjust_tooltip_for_list(self._list_widget.currentRow())
+            else:
+                # show beside the completion list
+                self._tooltip_widget.move(self.mapToGlobal(self.cursorRect().bottomRight()))
         return None
 
     def _complete_with(self, comp: str):
@@ -345,6 +358,11 @@ class QCommandLineEdit(QtW.QTextEdit):
                     else:
                         return False
                     return True
+                cursor = self.textCursor()
+                if cursor.blockNumber() == self.document().blockCount() - 1:
+                    self._look_for_next_hist()
+                    self.setTextCursor(cursor)
+                    return True
             elif event.key() == Qt.Key.Key_PageDown:
                 if self._list_widget.isVisible():
                     self._list_widget.goto_next_page()
@@ -358,7 +376,11 @@ class QCommandLineEdit(QtW.QTextEdit):
                     else:
                         return False
                     return True
-                # TODO: search for the history
+                cursor = self.textCursor()
+                if cursor.blockNumber() == 0:
+                    self._look_for_prev_hist()
+                    self.setTextCursor(cursor)
+                    return True
 
             elif event.key() == Qt.Key.Key_PageUp:
                 if self._list_widget.isVisible():
@@ -370,6 +392,7 @@ class QCommandLineEdit(QtW.QTextEdit):
                         self._complete_with_current_item()
                     else:
                         self.run_command()
+                        self._init_history_iter()
                     return True
                 elif event.modifiers() == Qt.KeyboardModifier.ShiftModifier:
                     self.insertPlainText("\n")
@@ -381,10 +404,11 @@ class QCommandLineEdit(QtW.QTextEdit):
                 if self._list_widget.isVisible() or self._tooltip_widget.isVisible():
                     self._close_popups()
                     return True
-                if self.text():
+                else:
                     self.setText("")
-                    return True
-            
+                    self._init_history_iter()
+                return True
+
         elif event.type() == QtCore.QEvent.Type.Move:
             self._close_popups()
         return super().event(event)
@@ -406,6 +430,16 @@ class QCommandLineEdit(QtW.QTextEdit):
             self._list_widget.hide()
         if self._tooltip_widget.isVisible():
             self._tooltip_widget.hide()
+        return None
+    
+    def _look_for_prev_hist(self) -> None:
+        self.setText(self._history_iter.prev())
+    
+    def _look_for_next_hist(self) -> None:
+        self.setText(self._history_iter.next())
+
+    def _init_history_iter(self):
+        self._history_iter = self._history.iter_bidirectional()
         return None
 
 class QCommandHighlighter(QtGui.QSyntaxHighlighter):

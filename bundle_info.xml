@@ -23,6 +23,7 @@
   <Dependencies>
     <Dependency name="ChimeraX-Core" version="~=1.3"/>
     <Dependency name="ChimeraX-UI" version="~=1.0"/>
+    <Dependency name="platformdirs" version=">=4.2.1"/>
   </Dependencies>
 
   <Classifiers>

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Iterator, TYPE_CHECKING
+from typing import Iterator
 from .types import WordInfo
 
 def get_registry() -> WordInfo:
