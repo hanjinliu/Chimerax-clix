@@ -1,0 +1,38 @@
+<BundleInfo name="ChimeraX-clix"
+	    version="0.1.0" package="chimerax.clix"
+  	    minSessionVersion="1" maxSessionVersion="1">
+
+  <!-- Additional information about bundle source -->
+  <Author>Hanjin Liu</Author>
+  <Email>liuha@med.kobe-u.ac.jp</Email>
+  <URL>https://github.com/hanjinliu</URL>
+
+  <!-- Synopsis is a one-line description
+       Description is a full multi-line description -->
+  <Synopsis>A powerful ChimeraX command line interface</Synopsis>
+  <Description>A powerful ChimeraX command line interface
+  </Description>
+
+  <!-- Categories is a list where this bundle should appear -->
+  <Categories>
+    <Category name="General"/>
+  </Categories>
+
+  <!-- Dependencies on other ChimeraX/Python packages -->
+  <!-- This example uses functionality from the Tutorial_Command bundle -->
+  <Dependencies>
+    <Dependency name="ChimeraX-Core" version="~=1.3"/>
+    <Dependency name="ChimeraX-UI" version="~=1.0"/>
+  </Dependencies>
+
+  <Classifiers>
+    <!-- Development Status should be compatible with bundle version number -->
+    <PythonClassifier>Development Status :: 3 - Alpha</PythonClassifier>
+    <PythonClassifier>License :: Freeware</PythonClassifier>
+    <!-- ChimeraX classifiers describe supplied functionality -->
+    <!-- Register a graphical interface tool -->
+    <ChimeraXClassifier>ChimeraX :: Tool :: CliX ::
+      General :: CliX</ChimeraXClassifier>
+  </Classifiers>
+
+</BundleInfo>
