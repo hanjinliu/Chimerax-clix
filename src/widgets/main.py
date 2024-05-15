@@ -295,9 +295,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         self._complete_with(comp)
 
     def focusOutEvent(self, a0: QtGui.QFocusEvent) -> None:
-        print(QtW.QApplication.focusWidget())
-        if QtW.QApplication.focusWidget() not in [self._list_widget, self._tooltip_widget]:
-            self._close_popups()
+        self._close_popups()
         return super().focusOutEvent(a0)
 
     def _close_popups(self):

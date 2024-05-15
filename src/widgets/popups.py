@@ -107,12 +107,16 @@ class QTooltipPopup(QtW.QTextEdit):
             strings.append(
                 f"<b>{name}</b>: {_colored(parse_annotation(typ), ColorPreset.TYPE)}"
             )
+        # here, some arguments are both optional and keyword
+        keywords = cmd_desc._keyword.copy()
         for name, typ in cmd_desc._optional.items():
-            strings.append(
-                f"<b>{name}</b>: {_colored(parse_annotation(typ), ColorPreset.TYPE)} "
-                "<i>(optional)</i>"
-            )
-        for name, typ in cmd_desc._keyword.items():
+            annot = _colored(parse_annotation(typ), ColorPreset.TYPE)
+            if name in keywords:
+                strings.append(f"<b>{name}</b>: {annot} <i>(optional, keyword)</i>")
+                keywords.pop(name)
+            else:
+                strings.append(f"<b>{name}</b>: {annot} <i>(optional)</i>")
+        for name, typ in keywords.items():
             strings.append(
                 f"<b>{name}</b>: {_colored(parse_annotation(typ), ColorPreset.TYPE)} "
                 "<i>(keyword)</i>"
