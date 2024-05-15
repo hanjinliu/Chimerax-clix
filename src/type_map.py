@@ -7,7 +7,9 @@ from chimerax.core.commands.cli import (
     WholeRestOfLine, FileNameArg, OpenFileNameArg, SaveFileNameArg, OpenFolderNameArg, 
     SaveFolderNameArg, OpenFileNamesArg, AttrNameArg, PasswordArg, CharacterArg
 )
-from chimerax.core.commands.colorarg import ColorArg, Color8Arg, Color8TupleArg, ColormapArg, ColormapRangeArg
+from chimerax.core.commands.colorarg import (
+    ColorArg, Color8Arg, Color8TupleArg, ColormapArg, ColormapRangeArg
+)
 from chimerax.core.commands.atomspec import AtomSpecArg
 
 _STR_MAP: dict[type, str] = {
@@ -44,6 +46,10 @@ _STR_MAP: dict[type, str] = {
     Color8TupleArg: "(int, int, int)",
     ColormapArg: "colormap",
     ColormapRangeArg: "colormap range",
+    ObjectsArg: "any objects",
+    ModelArg: "model", 
+    ModelsArg: "models",
+    AtomSpecArg: "atom-spec",
 }
 
 def _cls_to_str(cls: type):

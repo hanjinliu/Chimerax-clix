@@ -186,11 +186,14 @@ class QCommandLineEdit(QtW.QTextEdit):
         return CompletionState(last_word, comps, current_command, info)
 
     def _completion_for_chain(self, last_word: str, current_command: str | None):
+        # collect all the available chain IDs
         all_chain_ids: set[str] = set()
         for model in self._session.models.list():
             all_chain_ids.update(
                 f"/{_i}" for _i in model.chains.chain_ids if _i.startswith(last_word[1:])
             )
+        all_chain_ids = sorted(all_chain_ids)
+        # Now, all_chain_ids is like ["/A", "/B", ...]
         return CompletionState(
             last_word, all_chain_ids, current_command, 
             ["<i>chain ID</i>"] * len(all_chain_ids)
