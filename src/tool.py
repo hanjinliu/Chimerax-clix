@@ -1,6 +1,6 @@
 from chimerax.core.tools import ToolInstance
 from qtpy import QtWidgets as QtW
-from .widget import QCommandLineEdit
+from .widgets import QCommandLineEdit
 
 class ClixTool(ToolInstance):
     SESSION_ENDURING = False
