@@ -15,7 +15,6 @@ class QCompletionPopup(QtW.QListWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.itemClicked.connect(self._on_item_clicked)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)

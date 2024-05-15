@@ -1,17 +1,18 @@
 # CliX
 
+![](image.png)
+
 An intelligent command line interface for ChimeraX.
 
 ## How to use
 
 1. Get the source code.
-   1. Get the latest release and unzip it.
-      https://github.com/hanjinliu/Chimerax-clix/releases
-   2. Clone this repository.
+   - Get the [latest release](https://github.com/hanjinliu/Chimerax-clix/releases) and unzip it.
+   - or clone this repository.
       ```shell
       git clone git+https://github.com/hanjinliu/ChimeraX-clix
       ```
-   3. Manually download the contents from the "<> Code" pulldown menu in this page.
+   - or manually download the contents from the "<> Code" pulldown menu in this page.
 
 2. Install `clix` using ChimeraX built-in command line interface
    ```shell

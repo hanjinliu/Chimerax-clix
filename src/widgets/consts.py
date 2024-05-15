@@ -10,7 +10,7 @@ else:
     _FONT = "Monospace"
 
 class ColorPreset:
-    TYPE = "#28E028"
+    TYPE = "#28B328"
     MATCH = "#3C6CED"
     COMMAND = "#AF7500"
     MODEL = "#CF2424"

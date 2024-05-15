@@ -1,8 +1,8 @@
 from chimerax.core.commands.cli import (
     NoArg, NoneArg, BoolArg, StringArg, EmptyArg, EnumOf, DynamicEnum, IntArg, Int2Arg,
     Int3Arg, IntsArg, NonNegativeIntArg, PositiveIntArg, FloatArg, Float2Arg, Float3Arg, 
-    FloatsArg, NonNegativeFloatArg, PositiveFloatArg, FloatOrDeltaArg, AxisArg, 
-    CenterArg, CoordSysArg, PlaceArg, Bounded, SurfacesArg, SurfaceArg, 
+    FloatsArg, NonNegativeFloatArg, PositiveFloatArg, FloatOrDeltaArg, AxisArg, Or,
+    CenterArg, CoordSysArg, PlaceArg, Bounded, SurfacesArg, SurfaceArg, ListOf,
     ModelIdArg, ModelArg, ModelsArg, TopModelsArg, ObjectsArg, RestOfLine, 
     WholeRestOfLine, FileNameArg, OpenFileNameArg, SaveFileNameArg, OpenFolderNameArg, 
     SaveFolderNameArg, OpenFileNamesArg, AttrNameArg, PasswordArg, CharacterArg
@@ -68,6 +68,12 @@ def _bounded_to_str(ann: Bounded):
     else:
         return f"{base_anno} (X {op} {ann.max})"
 
+def _or_to_str(ann: Or):
+    return "(" + ", ".join(parse_annotation(each) for each in ann.annotations) + ")"
+
+def _list_to_str(ann: ListOf):
+    return f"list of {parse_annotation(ann.annotation)}"
+
 def parse_annotation(ann) -> str:
     if isinstance(ann, type):
         return _cls_to_str(ann)
@@ -77,4 +83,9 @@ def parse_annotation(ann) -> str:
         return _dyn_enum_to_str(ann)
     if isinstance(ann, Bounded):
         return _bounded_to_str(ann)
-    return str(ann)
+    if isinstance(ann, Or):
+        return _or_to_str(ann)
+    if isinstance(ann, ListOf):
+        return _list_to_str(ann)
+    ann_str = str(ann)
+    return ann_str.replace("<", "&lt;").replace(">", "&gt;")
