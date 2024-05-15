@@ -50,6 +50,8 @@ class QCompletionPopup(QtW.QListWidget):
         for _i, item in enumerate(cmp.completions):
             if item.startswith(prefix):
                 prefix, item = item[:len(prefix)], item[len(prefix):]
+            else:
+                item = ""
             text = f"<b>{_colored(prefix, ColorPreset.MATCH)}</b>{item}"
             if cmp.info is not None:
                 info = cmp.info[_i]
@@ -103,6 +105,7 @@ class QTooltipPopup(QtW.QTextEdit):
         strings = [f"<b>{_colored(command_name, ColorPreset.COMMAND)}</b>"]
         if cmd_desc.synopsis is not None:
             strings.append(cmd_desc.synopsis.replace("\n", "<br>"))
+        strings.append(f"<br><u>{_colored('Arguments', 'gray')}</u>")
         for name, typ in cmd_desc._required.items():
             strings.append(
                 f"<b>{name}</b>: {_colored(parse_annotation(typ), ColorPreset.TYPE)}"
