@@ -142,14 +142,9 @@ class QCommandLineEdit(QtW.QTextEdit):
         if pref == [] or last_word == "":
             return CompletionState(text, [], current_command)
         if last_word.startswith("#"):
-            # model ID completion
-            # "#" -> "#1 (model name)" etc.
-            comps = []
-            info = []
-            for model in self._session.models.list():
-                comps.append("#" + ".".join(str(_id) for _id in model.id))
-                info.append(model.name)
-            return CompletionState(last_word, comps, current_command, info)
+            return self._completion_for_model(last_word, current_command)
+        if last_word.startswith("/"):
+            return self._completion_for_chain(last_word, current_command)
 
         cmd = current_command or self._current_completion_state.command
         if winfo := self._commands.get(cmd, None):
@@ -164,6 +159,42 @@ class QCommandLineEdit(QtW.QTextEdit):
                 last_word, comp_list, current_command, ["<i>keyword</i>"] * len(comp_list)
             )
         return CompletionState(text, [], current_command)
+
+    def _completion_for_model(self, last_word: str, current_command: str | None):
+        # model ID completion
+        # "#" -> "#1 (model name)" etc.
+        # try model+chain specifiction completion such as "#1/B"
+        if "/" in last_word:
+            model_spec, chain_spec = last_word.split("/", 1)
+            for model in self._session.models.list():
+                if _model_to_spec(model) == model_spec:
+                    with_chain_ids: list[str] = list(
+                        f"{model_spec}/{_i}" for _i in model.chains.chain_ids
+                        if _i.startswith(chain_spec)
+                    )
+                    return CompletionState(
+                        last_word, with_chain_ids, current_command, 
+                        ["<i>chain ID</i>"] * len(with_chain_ids)
+                    )
+        comps = []
+        info = []
+        for model in self._session.models.list():
+            spec = _model_to_spec(model)
+            if spec.startswith(last_word):
+                comps.append(_model_to_spec(model))
+                info.append(model.name)
+        return CompletionState(last_word, comps, current_command, info)
+
+    def _completion_for_chain(self, last_word: str, current_command: str | None):
+        all_chain_ids: set[str] = set()
+        for model in self._session.models.list():
+            all_chain_ids.update(
+                f"/{_i}" for _i in model.chains.chain_ids if _i.startswith(last_word[1:])
+            )
+        return CompletionState(
+            last_word, all_chain_ids, current_command, 
+            ["<i>chain ID</i>"] * len(all_chain_ids)
+        )
 
     def _on_text_changed(self):
         self._update_completion_state(False)
@@ -314,3 +345,6 @@ class QCommandLineEdit(QtW.QTextEdit):
     def _init_history_iter(self):
         self._history_iter = self._history.iter_bidirectional()
         return None
+
+def _model_to_spec(model):
+    return "#" + ".".join(str(_id) for _id in model.id)
