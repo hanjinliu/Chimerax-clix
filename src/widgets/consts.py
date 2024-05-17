@@ -16,3 +16,4 @@ class ColorPreset:
     MODEL = "#CF2424"
     KEYWORD = "#808080"
     NUMBER = "#2CA32C"
+    SUGGESTION = "#B2B2B2"

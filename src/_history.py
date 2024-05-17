@@ -33,6 +33,9 @@ class CommandHistory(MutableSequence[str]):
     def __iter__(self):
         return iter(self._codes)
     
+    def __reversed__(self):
+        return reversed(self._codes)
+    
     def save(self):
         if not DATA_DIR.exists():
             DATA_DIR.mkdir(parents=True)
@@ -82,3 +85,56 @@ class BidirectionalIterator:
     @property
     def index(self) -> int:
         return self._index
+
+class HistoryManager:
+    """A class to manage history searching."""
+
+    def __init__(self):
+        self._history = CommandHistory.load()
+        self._history_iter = self._history.iter_bidirectional()
+        self._current_input: str = ""
+        self._is_searching = False
+        self._current_suggestion: str | None = None
+    
+    def add_code(self, code: str):
+        self._history.append_unique(code)
+        self._history.save()
+    
+    def init_iterator(self):
+        self._history_iter = self._history.iter_bidirectional()
+    
+    def look_for_prev(self, current_input: str) -> str:
+        text = self._history_iter.prev()
+        if not self._is_searching:
+            self._current_input = current_input
+        self._is_searching = True
+        return text
+    
+    def look_for_next(self, current_input: str) -> str:
+        if not self._is_searching:
+            return current_input
+        text = self._history_iter.next()
+        if text is None and self._is_searching:
+            self._is_searching = False
+            text = self._current_input
+        return text
+
+    def suggest(self, current_input: str) -> str | None:
+        if current_input.strip() == "":
+            return None
+        for code in reversed(self._history):
+            for line in code.splitlines():
+                if line.startswith(current_input):
+                    self._current_suggestion = line[len(current_input):]
+                    return self._current_suggestion
+        return None
+
+    def pop_suggestion(self) -> str | None:
+        out = self._current_suggestion
+        self._current_suggestion = None
+        return out
+    
+    def suggestion_char_count(self) -> int:
+        if self._current_suggestion is not None:
+            return len(self._current_suggestion)
+        return 0
