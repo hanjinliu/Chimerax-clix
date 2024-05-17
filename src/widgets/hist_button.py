@@ -69,6 +69,9 @@ class QHistoryWidget(QtW.QWidget):
         self._history_list = QHistoryList(btn)
         self._layout.addWidget(self._filter)
         self._layout.addWidget(self._history_list)
+        
+        self.setMaximumHeight(500)
+
         @self._filter._filter_line.textChanged.connect
         def _cb(txt: str):
             if txt == "":
