@@ -211,7 +211,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         if "/" in last_word:
             model_spec, chain_spec = last_word.split("/", 1)
             for model in self._session.models.list():
-                if _model_to_spec(model) == model_spec:
+                if _model_to_spec(model) == model_spec and hasattr(model, "chains"):
                     with_chain_ids: list[str] = list(
                         f"{model_spec}/{_i}" for _i in model.chains.chain_ids
                         if _i.startswith(chain_spec)
@@ -233,6 +233,8 @@ class QCommandLineEdit(QtW.QTextEdit):
         # collect all the available chain IDs
         all_chain_ids: set[str] = set()
         for model in self._session.models.list():
+            if not hasattr(model, "chains"):
+                continue
             all_chain_ids.update(
                 f"/{_i}" for _i in model.chains.chain_ids if _i.startswith(last_word[1:])
             )
