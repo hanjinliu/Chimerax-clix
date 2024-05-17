@@ -7,7 +7,7 @@ from ..types import resolve_cmd_desc
 from .consts import ColorPreset
 
 if TYPE_CHECKING:
-    from .main import QCommandLineEdit
+    from .cli_widget import QCommandLineEdit
 
 class QCommandHighlighter(QtGui.QSyntaxHighlighter):
     def __init__(self, parent: QCommandLineEdit):

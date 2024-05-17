@@ -4,6 +4,13 @@
 
 An intelligent command line interface for ChimeraX.
 
+## Features
+
+- Command suggestion
+- Command/keyword completion
+- Syntax highlighting
+- Multi-line execution
+
 ## How to use
 
 1. Get the source code.

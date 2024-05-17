@@ -6,9 +6,10 @@ from qtpy.QtCore import Qt
 from ..types import WordInfo, resolve_cmd_desc
 from ..type_map import parse_annotation
 from .consts import ColorPreset
+from ._utils import colored
 
 if TYPE_CHECKING:
-    from .main import QCommandLineEdit, CompletionState
+    from .cli_widget import QCommandLineEdit, CompletionState
 
 class QCompletionPopup(QtW.QListWidget):
     changed = QtCore.Signal(int, str)
@@ -52,7 +53,7 @@ class QCompletionPopup(QtW.QListWidget):
                 prefix, item = item[:len(prefix)], item[len(prefix):]
             else:
                 item = ""
-            text = f"<b>{_colored(prefix, ColorPreset.MATCH)}</b>{item}"
+            text = f"<b>{colored(prefix, ColorPreset.MATCH)}</b>{item}"
             if cmp.info is not None:
                 info = cmp.info[_i]
                 text += f"  ({info})"
@@ -102,18 +103,18 @@ class QTooltipPopup(QtW.QTextEdit):
             self.setText("")
             self.hide()
             return None
-        strings = [f"<b>{_colored(command_name, ColorPreset.COMMAND)}</b>"]
+        strings = [f"<b>{colored(command_name, ColorPreset.COMMAND)}</b>"]
         if cmd_desc.synopsis is not None:
             strings.append(cmd_desc.synopsis.replace("\n", "<br>"))
-        strings.append(f"<br><u>{_colored('Arguments', 'gray')}</u>")
+        strings.append(f"<br><u>{colored('Arguments', 'gray')}</u>")
         for name, typ in cmd_desc._required.items():
             strings.append(
-                f"<b>{name}</b>: {_colored(parse_annotation(typ), ColorPreset.TYPE)}"
+                f"<b>{name}</b>: {colored(parse_annotation(typ), ColorPreset.TYPE)}"
             )
         # here, some arguments are both optional and keyword
         keywords = cmd_desc._keyword.copy()
         for name, typ in cmd_desc._optional.items():
-            annot = _colored(parse_annotation(typ), ColorPreset.TYPE)
+            annot = colored(parse_annotation(typ), ColorPreset.TYPE)
             if name in keywords:
                 strings.append(f"<b>{name}</b>: {annot} <i>(optional, keyword)</i>")
                 keywords.pop(name)
@@ -121,11 +122,8 @@ class QTooltipPopup(QtW.QTextEdit):
                 strings.append(f"<b>{name}</b>: {annot} <i>(optional)</i>")
         for name, typ in keywords.items():
             strings.append(
-                f"<b>{name}</b>: {_colored(parse_annotation(typ), ColorPreset.TYPE)} "
+                f"<b>{name}</b>: {colored(parse_annotation(typ), ColorPreset.TYPE)} "
                 "<i>(keyword)</i>"
             )
         self.setText("<br>".join(strings))
         return None
-
-def _colored(text: str, color: str) -> str:
-    return f"<font color=\"{color}\">{text}</font>"

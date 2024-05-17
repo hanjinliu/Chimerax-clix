@@ -5,9 +5,10 @@ from typing import NamedTuple
 from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
 from ..types import WordInfo, resolve_cmd_desc
-from .._history import CommandHistory
+from .._history import HistoryManager
 from chimerax.core.commands import run
-from .consts import _FONT
+from .consts import _FONT, ColorPreset
+from ._utils import colored
 from .popups import QCompletionPopup, QTooltipPopup
 from .highlighter import QCommandHighlighter
 
@@ -21,6 +22,8 @@ class CompletionState(NamedTuple):
     def empty(cls) -> CompletionState:
         return cls("", [])
 
+class QSuggestionLabel(QtW.QLabel):
+    pass
 
 class QCommandLineEdit(QtW.QTextEdit):
     def __init__(self, commands: dict[str, WordInfo], session):
@@ -33,11 +36,12 @@ class QCommandLineEdit(QtW.QTextEdit):
         self._current_completion_state = CompletionState.empty()
         self._list_widget = self._create_list_widget()
         self._tooltip_widget = self._create_tooltip_widget()
+        self._inline_suggestion_widget = self._create_suggestion_widget()
         self._session = session
         self._highlighter = QCommandHighlighter(self)
         self.set_height_for_block_counts()
-        self._history = CommandHistory.load()
-        self._history_iter = self._history.iter_bidirectional()
+        self._history_mgr = HistoryManager()
+        self._text_removed_last = False
 
     def _update_completion_state(self, allow_auto: bool = False) -> bool:
         cursor = self.textCursor()
@@ -49,16 +53,9 @@ class QCommandLineEdit(QtW.QTextEdit):
             self._complete_with(self._current_completion_state.completions[0])
         return True
 
-    def show_completion(self, allow_auto: bool = True):
-        if self._list_widget.isVisible():
-            self._complete_with_current_item()
-            return
-        if not self._update_completion_state(allow_auto):
-            return
-        self._create_list_widget()
-    
     def text(self) -> str:
-        return self.toPlainText().replace("\u2029", "\n")
+        text = self.toPlainText()
+        return text.replace("\u2029", "\n")
 
     def run_command(self):
         code = self.text()
@@ -70,8 +67,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         finally:
             self.setText("")
         if code:
-            self._history.append_unique(code)
-            self._history.save()
+            self._history_mgr.add_code(code)
 
     def _adjust_tooltip_for_list(self, idx: int):
         item_rect = self._list_widget.visualItemRect(self._list_widget.item(idx))
@@ -102,6 +98,14 @@ class QCommandLineEdit(QtW.QTextEdit):
         tooltip_widget.setParent(self, Qt.WindowType.ToolTip)
         tooltip_widget.setFont(self.font())
         return tooltip_widget
+
+    def _create_suggestion_widget(self):
+        suggestion_widget = QSuggestionLabel()
+        suggestion_widget.setFont(self.font())
+        suggestion_widget.setParent(self, Qt.WindowType.ToolTip)
+        suggestion_widget.setStyleSheet("QSuggestionLabel { background-color: #ffffff; }")
+        suggestion_widget.hide()
+        return suggestion_widget
 
     def _get_completion_list(self, text: str) -> CompletionState:
         if text == "":
@@ -200,11 +204,15 @@ class QCommandLineEdit(QtW.QTextEdit):
         )
 
     def _on_text_changed(self):
+        self._inline_suggestion_widget.hide()
+
+        # look for the completion
         self._update_completion_state(False)
         self._try_show_list_widget()
         if self._list_widget.isVisible():
             self._list_widget.setCurrentRow(0)
 
+        # if needed, show/hide the tooltip widget
         if self._current_completion_state.command is None:
             if self._tooltip_widget.isVisible():
                 self._tooltip_widget.hide()
@@ -213,8 +221,38 @@ class QCommandLineEdit(QtW.QTextEdit):
             cmd = self._commands[name]
             self._tooltip_widget.setWordInfo(cmd, name)
             self._try_show_tooltip_widget()
+        
+        # resize the widget
         self.set_height_for_block_counts()
+        
+        # one-line suggestion
+        if not self._text_removed_last:
+            this_line = self.textCursor().block().text()
+            if suggested := self._history_mgr.suggest(this_line):
+                self._show_inline_suggestion(suggested)
         return None
+    
+    def _show_inline_suggestion(self, suggested: str):
+        self._inline_suggestion_widget.setText(colored(suggested, ColorPreset.SUGGESTION))
+        cursor_rect = self.cursorRect()
+        label_height = QtGui.QFontMetrics(self.font()).height()
+        cursor_height = cursor_rect.height()
+        dh = (cursor_height - label_height) // 2
+        tr = cursor_rect.topRight()
+        cursor_point = QtCore.QPoint(tr.x() + 1, tr.y() + dh)
+        self._inline_suggestion_widget.move(self.mapToGlobal(cursor_point))
+        self._inline_suggestion_widget.show()
+        return None
+
+    def _apply_inline_suggestion(self):
+        cursor = self.textCursor()
+        if sug := self._history_mgr.pop_suggestion():
+            self.insertPlainText(sug)
+            cursor.movePosition(QtGui.QTextCursor.MoveOperation.End)
+            self.setTextCursor(cursor)
+        self._inline_suggestion_widget.hide()
+        self._close_popups()
+        return True
 
     def _try_show_list_widget(self):
         self._update_completion_state(allow_auto=False)
@@ -253,10 +291,18 @@ class QCommandLineEdit(QtW.QTextEdit):
     def event(self, event: QtCore.QEvent):
         if event.type() == QtCore.QEvent.Type.KeyPress:
             assert isinstance(event, QtGui.QKeyEvent)
+            self._text_removed_last = False
             if event.key() == Qt.Key.Key_Tab:
-                self.show_completion()
+                if self._list_widget.isVisible():
+                    self._complete_with_current_item()
+                    return True
+                if not self._update_completion_state(True):
+                    return True
+                self._try_show_list_widget()
                 return True
+            # up/down arrow keys
             elif event.key() == Qt.Key.Key_Down:
+                self._inline_suggestion_widget.hide()
                 if self._list_widget.isVisible():
                     if event.modifiers() == Qt.KeyboardModifier.NoModifier:
                         self._list_widget.goto_next()
@@ -267,14 +313,16 @@ class QCommandLineEdit(QtW.QTextEdit):
                     return True
                 cursor = self.textCursor()
                 if cursor.blockNumber() == self.document().blockCount() - 1:
-                    self._look_for_next_hist()
+                    self.setText(self._history_mgr.look_for_next(self.text()))
                     self.setTextCursor(cursor)
                     return True
             elif event.key() == Qt.Key.Key_PageDown:
+                self._inline_suggestion_widget.hide()
                 if self._list_widget.isVisible():
                     self._list_widget.goto_next_page()
                     return True
             elif event.key() == Qt.Key.Key_Up:
+                self._inline_suggestion_widget.hide()
                 if self._list_widget.isVisible():
                     if event.modifiers() == Qt.KeyboardModifier.NoModifier:
                         self._list_widget.goto_previous()
@@ -285,21 +333,33 @@ class QCommandLineEdit(QtW.QTextEdit):
                     return True
                 cursor = self.textCursor()
                 if cursor.blockNumber() == 0:
-                    self._look_for_prev_hist()
+                    self.setText(self._history_mgr.look_for_prev(self.text()))
                     self.setTextCursor(cursor)
                     return True
-
             elif event.key() == Qt.Key.Key_PageUp:
+                self._inline_suggestion_widget.hide()
                 if self._list_widget.isVisible():
                     self._list_widget.goto_previous_page()
                     return True
+            
+            # left/right arrow keys
+            elif event.key() == Qt.Key.Key_Right:
+                cursor = self.textCursor()
+                if cursor.atBlockEnd() and self._inline_suggestion_widget.isVisible():
+                    self._apply_inline_suggestion()
+                    return True
+            elif event.key() == Qt.Key.Key_End:
+                if self._inline_suggestion_widget.isVisible():
+                    self._apply_inline_suggestion()
+                    return True
+
             elif event.key() == Qt.Key.Key_Return:
                 if event.modifiers() == Qt.KeyboardModifier.NoModifier:
                     if self._list_widget.isVisible():
                         self._complete_with_current_item()
                     else:
                         self.run_command()
-                        self._init_history_iter()
+                        self._history_mgr.init_iterator()
                     return True
                 elif event.modifiers() == Qt.KeyboardModifier.ShiftModifier:
                     self.insertPlainText("\n")
@@ -313,8 +373,15 @@ class QCommandLineEdit(QtW.QTextEdit):
                     return True
                 else:
                     self.setText("")
-                    self._init_history_iter()
+                    self._history_mgr.init_iterator()
                 return True
+            
+            elif event.key() == Qt.Key.Key_Backspace:
+                self._text_removed_last = True
+            elif event.key() == Qt.Key.Key_Delete:
+                self._text_removed_last = True
+            elif event.key() == Qt.Key.Key_X and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+                self._text_removed_last = True
 
         elif event.type() == QtCore.QEvent.Type.Move:
             self._close_popups()
@@ -337,16 +404,8 @@ class QCommandLineEdit(QtW.QTextEdit):
             self._list_widget.hide()
         if self._tooltip_widget.isVisible():
             self._tooltip_widget.hide()
-        return None
-    
-    def _look_for_prev_hist(self) -> None:
-        self.setText(self._history_iter.prev())
-    
-    def _look_for_next_hist(self) -> None:
-        self.setText(self._history_iter.next())
-
-    def _init_history_iter(self):
-        self._history_iter = self._history.iter_bidirectional()
+        if self._inline_suggestion_widget.isVisible():
+            self._inline_suggestion_widget.hide()
         return None
 
 def _model_to_spec(model):
