@@ -9,7 +9,7 @@ from .consts import ColorPreset
 from ._utils import colored
 
 if TYPE_CHECKING:
-    from .main import QCommandLineEdit, CompletionState
+    from .cli_widget import QCommandLineEdit, CompletionState
 
 class QCompletionPopup(QtW.QListWidget):
     changed = QtCore.Signal(int, str)

@@ -62,10 +62,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         self._create_list_widget()
     
     def text(self) -> str:
-        nchars = self._history_mgr.suggestion_char_count()
         text = self.toPlainText()
-        if nchars > 0:
-            text = text[:-nchars]
         return text.replace("\u2029", "\n")
 
     def run_command(self):
@@ -351,8 +348,9 @@ class QCommandLineEdit(QtW.QTextEdit):
                     self._apply_inline_suggestion()
                     return True
             elif event.key() == Qt.Key.Key_End:
-                self._apply_inline_suggestion()
-                return True
+                if self._inline_suggestion_widget.isVisible():
+                    self._apply_inline_suggestion()
+                    return True
 
             elif event.key() == Qt.Key.Key_Return:
                 if event.modifiers() == Qt.KeyboardModifier.NoModifier:

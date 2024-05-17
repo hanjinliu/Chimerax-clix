@@ -133,8 +133,6 @@ class HistoryManager:
         out = self._current_suggestion
         self._current_suggestion = None
         return out
-    
-    def suggestion_char_count(self) -> int:
-        if self._current_suggestion is not None:
-            return len(self._current_suggestion)
-        return 0
+
+    def aslist(self) -> list[str]:
+        return list(self._history)
