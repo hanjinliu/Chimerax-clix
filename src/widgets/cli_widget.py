@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import NamedTuple
+from pathlib import Path
+from typing import Iterable, NamedTuple
 
 from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
@@ -17,6 +18,7 @@ class CompletionState(NamedTuple):
     completions: list[str]
     command: str | None = None
     info: list[str] | None = None
+    type: str = ""
     
     @classmethod
     def empty(cls) -> CompletionState:
@@ -73,11 +75,11 @@ class QCommandLineEdit(QtW.QTextEdit):
         item_rect = self._list_widget.visualItemRect(self._list_widget.item(idx))
         rect = self._list_widget.rect()
         rel_dist_from_bottom = (rect.bottom() - item_rect.bottom()) / rect.height()
-        item_rect.setX(item_rect.x() + 10)
         if rel_dist_from_bottom > 0.5:
             pos = item_rect.topRight()
         else:
             pos = item_rect.bottomRight() - QtCore.QPoint(0, self._tooltip_widget.height())
+        pos.setX(pos.x() + 10)
         self._tooltip_widget.move(self._list_widget.mapToGlobal(pos))
 
     def _list_selection_changed(self, idx: int, text: str):
@@ -109,7 +111,7 @@ class QCommandLineEdit(QtW.QTextEdit):
 
     def _get_completion_list(self, text: str) -> CompletionState:
         if text == "":
-            return CompletionState(text, [])
+            return CompletionState(text, [], type="empty-text")
 
         # command completion
         matched_commands: list[str] = []
@@ -139,7 +141,7 @@ class QCommandLineEdit(QtW.QTextEdit):
                 for cmd in matched_commands:
                     base_commands[cmd.split(" ")[0]] = None
                 matched_commands = list(base_commands.keys()) + matched_commands
-            return CompletionState(text, matched_commands, current_command)
+            return CompletionState(text, matched_commands, current_command, type="command")
     
         # attribute completion
         *pref, last_word = text.rsplit(" ")
@@ -149,7 +151,42 @@ class QCommandLineEdit(QtW.QTextEdit):
             return self._completion_for_model(last_word, current_command)
         if last_word.startswith("/"):
             return self._completion_for_chain(last_word, current_command)
+        
+        # path completion
+        if last_word.endswith(("/.", "\\.")):
+            # If path string ends with ".", pathlib.Path will ignore it.
+            # Here, we replace it with "$" to avoid this behavior.
+            _maybe_path = Path(last_word[:-1].lstrip("'").lstrip('"')).absolute() / "$"
+        else:
+            _maybe_path = Path(last_word.lstrip("'").lstrip('"')).absolute()
+        if _maybe_path.exists():
+            if _maybe_path.is_dir():
+                if last_word.endswith(("/", "\\")):
+                    sep = ""
+                else:
+                    sep = "\\" if "\\" in last_word else "/"
+                return CompletionState(
+                    "",
+                    [sep + _p for _p in _iter_upto(p.name for p in _maybe_path.glob("*"))], 
+                    current_command,
+                    type="path",
+                )
+        elif _maybe_path.parent.exists() and _maybe_path != Path("/").absolute():
+            _iter = _maybe_path.parent.glob("*")
+            pref = _maybe_path.as_posix().rsplit("/", 1)[1]
+            if pref == "$":
+                pref = "."
+            return CompletionState(
+                pref,
+                _iter_upto(
+                    (p.name for p in _iter if p.name.startswith(pref)),
+                    include_hidden=pref.startswith(".") or pref == "$",
+                ),
+                current_command,
+                type="path",
+            )
 
+        # command keyword completion
         cmd = current_command or self._current_completion_state.command
         if winfo := self._commands.get(cmd, None):
             comp_list: list[str] = []
@@ -160,7 +197,10 @@ class QCommandLineEdit(QtW.QTextEdit):
                 if _k.startswith(last_word):
                     comp_list.append(_k)
             return CompletionState(
-                last_word, comp_list, current_command, ["<i>keyword</i>"] * len(comp_list)
+                last_word, 
+                comp_list, 
+                current_command, ["<i>keyword</i>"] * len(comp_list),
+                type="keyword",
             )
         return CompletionState(text, [], current_command)
 
@@ -171,7 +211,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         if "/" in last_word:
             model_spec, chain_spec = last_word.split("/", 1)
             for model in self._session.models.list():
-                if _model_to_spec(model) == model_spec:
+                if _model_to_spec(model) == model_spec and hasattr(model, "chains"):
                     with_chain_ids: list[str] = list(
                         f"{model_spec}/{_i}" for _i in model.chains.chain_ids
                         if _i.startswith(chain_spec)
@@ -193,6 +233,8 @@ class QCommandLineEdit(QtW.QTextEdit):
         # collect all the available chain IDs
         all_chain_ids: set[str] = set()
         for model in self._session.models.list():
+            if not hasattr(model, "chains"):
+                continue
             all_chain_ids.update(
                 f"/{_i}" for _i in model.chains.chain_ids if _i.startswith(last_word[1:])
             )
@@ -258,7 +300,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         self._update_completion_state(allow_auto=False)
         text = self._current_completion_state.text
         items = self._current_completion_state.completions
-        if len(items) == 0 or len(text) == 0:
+        if len(items) == 0:
             self._list_widget.hide()
             return
         self._list_widget.add_items_with_highlight(self._current_completion_state)
@@ -269,7 +311,11 @@ class QCommandLineEdit(QtW.QTextEdit):
         return
     
     def _try_show_tooltip_widget(self):
-        if not self._tooltip_widget.isVisible() and self._tooltip_widget.toPlainText() != "":
+        if (
+            not self._tooltip_widget.isVisible()
+            and self._tooltip_widget.toPlainText() != ""
+            and self._current_completion_state.type != "path"
+        ):
             self._tooltip_widget.show()
             self.setFocus()
         if self._tooltip_widget.isVisible():
@@ -295,10 +341,10 @@ class QCommandLineEdit(QtW.QTextEdit):
             if event.key() == Qt.Key.Key_Tab:
                 if self._list_widget.isVisible():
                     self._complete_with_current_item()
-                    return True
-                if not self._update_completion_state(True):
-                    return True
-                self._try_show_list_widget()
+                elif not self._update_completion_state(True):
+                    pass
+                else:
+                    self._try_show_list_widget()
                 return True
             # up/down arrow keys
             elif event.key() == Qt.Key.Key_Down:
@@ -306,10 +352,10 @@ class QCommandLineEdit(QtW.QTextEdit):
                 if self._list_widget.isVisible():
                     if event.modifiers() == Qt.KeyboardModifier.NoModifier:
                         self._list_widget.goto_next()
-                    elif event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+                    elif event.modifiers() & Qt.KeyboardModifier.ControlModifier:
                         self._list_widget.goto_last()
                     else:
-                        return False
+                        return super().event(event)
                     return True
                 cursor = self.textCursor()
                 if cursor.blockNumber() == self.document().blockCount() - 1:
@@ -326,10 +372,10 @@ class QCommandLineEdit(QtW.QTextEdit):
                 if self._list_widget.isVisible():
                     if event.modifiers() == Qt.KeyboardModifier.NoModifier:
                         self._list_widget.goto_previous()
-                    elif event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+                    elif event.modifiers() & Qt.KeyboardModifier.ControlModifier:
                         self._list_widget.goto_first()
                     else:
-                        return False
+                        return super().event(event)
                     return True
                 cursor = self.textCursor()
                 if cursor.blockNumber() == 0:
@@ -361,7 +407,7 @@ class QCommandLineEdit(QtW.QTextEdit):
                         self.run_command()
                         self._history_mgr.init_iterator()
                     return True
-                elif event.modifiers() == Qt.KeyboardModifier.ShiftModifier:
+                elif event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
                     self.insertPlainText("\n")
                     self._close_popups()
                     self.set_height_for_block_counts()
@@ -410,3 +456,9 @@ class QCommandLineEdit(QtW.QTextEdit):
 
 def _model_to_spec(model):
     return "#" + ".".join(str(_id) for _id in model.id)
+
+def _iter_upto(it: Iterable[str], n: int = 64, include_hidden: bool = False) -> list[str]:
+    if include_hidden:
+        return [a for _, a in zip(range(n), it)]
+    else:
+        return [a for _, a in zip(range(n), it) if not a.startswith(".")]

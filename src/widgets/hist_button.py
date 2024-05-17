@@ -24,7 +24,7 @@ class QShowHistoryButton(QtW.QPushButton):
     def _on_clicked(self):
         self._hist_list_widget = QHistoryWidget(self)
         self._hist_list_widget.setWindowFlags(QtCore.Qt.WindowType.Popup)
-        self._hist_list_widget.setFixedWidth(600)
+        self._hist_list_widget.setFixedWidth(420)
         self._hist_list_widget.show()
         size = self._hist_list_widget.size()
         point = self.rect().topRight() - QtCore.QPoint(size.width(), size.height())
