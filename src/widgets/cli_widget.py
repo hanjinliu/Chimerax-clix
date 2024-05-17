@@ -53,14 +53,6 @@ class QCommandLineEdit(QtW.QTextEdit):
             self._complete_with(self._current_completion_state.completions[0])
         return True
 
-    def show_completion(self, allow_auto: bool = True):
-        if self._list_widget.isVisible():
-            self._complete_with_current_item()
-            return
-        if not self._update_completion_state(allow_auto):
-            return
-        self._create_list_widget()
-    
     def text(self) -> str:
         text = self.toPlainText()
         return text.replace("\u2029", "\n")
@@ -247,7 +239,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         cursor_height = cursor_rect.height()
         dh = (cursor_height - label_height) // 2
         tr = cursor_rect.topRight()
-        cursor_point = QtCore.QPoint(tr.x(), tr.y() + dh)
+        cursor_point = QtCore.QPoint(tr.x() + 1, tr.y() + dh)
         self._inline_suggestion_widget.move(self.mapToGlobal(cursor_point))
         self._inline_suggestion_widget.show()
         return None
@@ -301,10 +293,16 @@ class QCommandLineEdit(QtW.QTextEdit):
             assert isinstance(event, QtGui.QKeyEvent)
             self._text_removed_last = False
             if event.key() == Qt.Key.Key_Tab:
-                self.show_completion()
+                if self._list_widget.isVisible():
+                    self._complete_with_current_item()
+                    return True
+                if not self._update_completion_state(True):
+                    return True
+                self._try_show_list_widget()
                 return True
             # up/down arrow keys
             elif event.key() == Qt.Key.Key_Down:
+                self._inline_suggestion_widget.hide()
                 if self._list_widget.isVisible():
                     if event.modifiers() == Qt.KeyboardModifier.NoModifier:
                         self._list_widget.goto_next()
@@ -319,10 +317,12 @@ class QCommandLineEdit(QtW.QTextEdit):
                     self.setTextCursor(cursor)
                     return True
             elif event.key() == Qt.Key.Key_PageDown:
+                self._inline_suggestion_widget.hide()
                 if self._list_widget.isVisible():
                     self._list_widget.goto_next_page()
                     return True
             elif event.key() == Qt.Key.Key_Up:
+                self._inline_suggestion_widget.hide()
                 if self._list_widget.isVisible():
                     if event.modifiers() == Qt.KeyboardModifier.NoModifier:
                         self._list_widget.goto_previous()
@@ -337,6 +337,7 @@ class QCommandLineEdit(QtW.QTextEdit):
                     self.setTextCursor(cursor)
                     return True
             elif event.key() == Qt.Key.Key_PageUp:
+                self._inline_suggestion_widget.hide()
                 if self._list_widget.isVisible():
                     self._list_widget.goto_previous_page()
                     return True

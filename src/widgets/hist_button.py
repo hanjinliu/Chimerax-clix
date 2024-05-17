@@ -29,10 +29,11 @@ class QShowHistoryButton(QtW.QPushButton):
         size = self._hist_list_widget.size()
         point = self.rect().topRight() - QtCore.QPoint(size.width(), size.height())
         self._hist_list_widget.move(self.mapToGlobal(point))
+        self._hist_list_widget._filter._filter_line.setFocus()
 
 class QHistoryListModel(QtCore.QAbstractListModel):
-    def __init__(self, history):
-        super().__init__()
+    def __init__(self, history, parent):
+        super().__init__(parent)
         self._history = history
 
     def rowCount(self, parent=None):
@@ -45,7 +46,18 @@ class QHistoryListModel(QtCore.QAbstractListModel):
             return self._history[index.row()]
         elif role == QtCore.Qt.ItemDataRole.FontRole:
             return _QFONT
+        elif role == QtCore.Qt.ItemDataRole.BackgroundRole:
+            if index.row() == self.parent().currentIndex().row():
+                return QtGui.QBrush(QtGui.QColor(232, 232, 255))
+            if index.row() % 2 == 0:
+                return QtGui.QBrush(QtGui.QColor(255, 255, 255))
+            else:
+                return QtGui.QBrush(QtGui.QColor(238, 238, 238))
         return None
+    
+    if TYPE_CHECKING:
+        def parent(self) -> QHistoryList:
+            return super().parent()
 
 class QHistoryWidget(QtW.QWidget):
     def __init__(self, btn: QShowHistoryButton):
@@ -67,14 +79,12 @@ class QHistoryWidget(QtW.QWidget):
 class QHistoryList(QtW.QListView):
     def __init__(self, parent: QShowHistoryButton) -> None:
         super().__init__(parent)
-        self.setSpacing(3)
         self.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.setSelectionMode(QtW.QAbstractItemView.SelectionMode.SingleSelection)
         self.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
         self._btn = parent
         self.clicked.connect(self.update_with_current_command)
         self.set_list(self._btn._cli_widget._history_mgr.aslist())
-        self.setStyleSheet("QHistoryList { border: 1 px solid gray; }")
     
     def keyPressEvent(self, e: QtGui.QKeyEvent) -> None:
         if e.key() == QtCore.Qt.Key.Key_Return:
@@ -93,7 +103,7 @@ class QHistoryList(QtW.QListView):
             self._btn._hist_list_widget.hide()
     
     def set_list(self, hist: list[str]):
-        self._model = QHistoryListModel(hist)
+        self._model = QHistoryListModel(hist, self)
         self.setModel(self._model)
         self.scrollToBottom()
         self.setCurrentIndex(self._model.index(self._model.rowCount() - 1, 0))
@@ -115,12 +125,13 @@ class QHistoryFilter(QtW.QWidget):
     def __init__(self):
         super().__init__()
         self._layout = QtW.QHBoxLayout()
+        self._layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self._layout)
         
         self._filter_line = QFilterLineEdit()
         
         self._method_choice = QtW.QComboBox()
-        self._method_choice.addItems(["ABC___", "___ABC", "__ABC__", ".*"])
+        self._method_choice.addItems(["abc___", "___abc", "__abc__", ".*"])
         self._layout.addWidget(QtW.QLabel("Search:"))
         self._layout.addWidget(self._method_choice)
         self._layout.addWidget(self._filter_line)
