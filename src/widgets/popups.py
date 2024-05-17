@@ -47,13 +47,16 @@ class QCompletionPopup(QtW.QListWidget):
             self.setItemWidget(list_widget_item, label)
         for _ in range(self.count() - len(cmp.completions)):
             self.takeItem(0)
-        
+
         for _i, item in enumerate(cmp.completions):
             if item.startswith(prefix):
                 prefix, item = item[:len(prefix)], item[len(prefix):]
             else:
                 item = ""
-            text = f"<b>{colored(prefix, ColorPreset.MATCH)}</b>{item}"
+            if prefix:
+                text = f"<b>{colored(prefix, ColorPreset.MATCH)}</b>{item}"
+            else:
+                text = item
             if cmp.info is not None:
                 info = cmp.info[_i]
                 text += f"  ({info})"
