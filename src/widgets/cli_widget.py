@@ -8,7 +8,7 @@ from qtpy.QtCore import Qt
 from ..types import WordInfo, resolve_cmd_desc
 from .._history import HistoryManager
 from chimerax.core.commands import run
-from .consts import _FONT, ColorPreset
+from .consts import _FONT, ColorPreset, ALL_ATOMS, ALL_AMINO_ACIDS, TOOLTIP_FOR_AMINO_ACID
 from ._utils import colored
 from .popups import QCompletionPopup, QTooltipPopup
 from .highlighter import QCommandHighlighter
@@ -83,7 +83,13 @@ class QCommandLineEdit(QtW.QTextEdit):
         self._tooltip_widget.move(self._list_widget.mapToGlobal(pos))
 
     def _list_selection_changed(self, idx: int, text: str):
-        if winfo := self._commands.get(text, None):
+        if self._current_completion_state.type in ("residue", "model,residue"):
+            # set residue name
+            if tooltip := TOOLTIP_FOR_AMINO_ACID.get(text[1:], None):
+                self._tooltip_widget.setText(tooltip)
+            self._adjust_tooltip_for_list(idx)
+            self._try_show_tooltip_widget()
+        elif winfo := self._commands.get(text, None):
             self._adjust_tooltip_for_list(idx)
             self._tooltip_widget.setWordInfo(winfo, text)
             self._try_show_tooltip_widget()
@@ -151,6 +157,10 @@ class QCommandLineEdit(QtW.QTextEdit):
             return self._completion_for_model(last_word, current_command)
         if last_word.startswith("/"):
             return self._completion_for_chain(last_word, current_command)
+        if last_word.startswith(":"):
+            return self._completion_for_residue(last_word, current_command)
+        if last_word.startswith("@"):
+            return self._completion_for_atom(last_word, current_command)
         
         # path completion
         if last_word.endswith(("/.", "\\.")):
@@ -218,8 +228,27 @@ class QCommandLineEdit(QtW.QTextEdit):
                     )
                     return CompletionState(
                         last_word, with_chain_ids, current_command, 
-                        ["<i>chain ID</i>"] * len(with_chain_ids)
+                        ["<i>chain ID</i>"] * len(with_chain_ids), type="model,chain"
                     )
+        if ":" in last_word:
+            model_spec, chain_spec = last_word.split("/", 1)
+            for model in self._session.models.list():
+                if _model_to_spec(model) == model_spec and hasattr(model, "nonstandard_residue_names"):
+                    with_residues: list[str] = list(
+                        f"{model_spec}:{_r}" for _r in model.nonstandard_residue_names
+                        if _r.startswith(chain_spec)
+                    )
+                    return CompletionState(
+                        last_word, with_residues, current_command, 
+                        ["<i>residue</i>"] * len(with_residues), type="model,residue"
+                    )
+        if "@" in last_word:
+            _, atom_spec = last_word.split("@", 1)
+            all_atoms = [f"@{_a}" for _a in ALL_ATOMS if _a.startswith(atom_spec)]
+            return CompletionState(
+                last_word, all_atoms, current_command, 
+                ["<i>atom</i>"] * len(all_atoms), type="model,atom"
+            )
         comps = []
         info = []
         for model in self._session.models.list():
@@ -227,7 +256,7 @@ class QCommandLineEdit(QtW.QTextEdit):
             if spec.startswith(last_word):
                 comps.append(_model_to_spec(model))
                 info.append(model.name)
-        return CompletionState(last_word, comps, current_command, info)
+        return CompletionState(last_word, comps, current_command, info, type="model")
 
     def _completion_for_chain(self, last_word: str, current_command: str | None):
         # collect all the available chain IDs
@@ -242,9 +271,35 @@ class QCommandLineEdit(QtW.QTextEdit):
         # Now, all_chain_ids is like ["/A", "/B", ...]
         return CompletionState(
             last_word, all_chain_ids, current_command, 
-            ["<i>chain ID</i>"] * len(all_chain_ids)
+            ["<i>chain ID</i>"] * len(all_chain_ids), type="chain"
+        )
+    
+    def _completion_for_residue(self, last_word: str, current_command: str | None):
+        all_non_std_residues: set[str] = set()
+        for model in self._session.models.list():
+            if not hasattr(model, "nonstandard_residue_names"):
+                continue
+            all_non_std_residues.update(
+                f":{_r}" for _r in model.nonstandard_residue_names 
+                if _r.startswith(last_word[1:])
+            )
+        completions = sorted(all_non_std_residues)
+        # Now, completions is like [":ATP", ":GTP", ...]
+        # Adds the standard amino acids
+        completions.extend(f":{_a}" for _a in ALL_AMINO_ACIDS if _a.startswith(last_word[1:]))
+        return CompletionState(
+            last_word, completions, current_command, 
+            ["<i>residue</i>"] * len(all_non_std_residues) + ["<i>amino acid</i>"] * len(ALL_AMINO_ACIDS),
+            type="residue",
         )
 
+    def _completion_for_atom(self, last_word: str, current_command: str | None):
+        all_atoms = [f"@{_a}" for _a in ALL_ATOMS if _a.startswith(last_word[1:])]
+        return CompletionState(
+            last_word, all_atoms, current_command, 
+            ["<i>atom</i>"] * len(all_atoms), type="atom",
+        )
+   
     def _on_text_changed(self):
         self._inline_suggestion_widget.hide()
 
@@ -258,6 +313,8 @@ class QCommandLineEdit(QtW.QTextEdit):
         if self._current_completion_state.command is None:
             if self._tooltip_widget.isVisible():
                 self._tooltip_widget.hide()
+        elif self._current_completion_state.type in ("residue", "model,residue"):
+            self._try_show_tooltip_widget()    
         else:
             name = self._current_completion_state.command
             cmd = self._commands[name]
@@ -316,8 +373,10 @@ class QCommandLineEdit(QtW.QTextEdit):
             and self._tooltip_widget.toPlainText() != ""
             and self._current_completion_state.type != "path"
         ):
+            # show tooltip because there's a command
             self._tooltip_widget.show()
             self.setFocus()
+        
         if self._tooltip_widget.isVisible():
             if self._list_widget.isVisible():
                 # show next to the cursor
