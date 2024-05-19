@@ -11,7 +11,14 @@ An intelligent command line interface for ChimeraX.
 - Syntax highlighting
 - Multi-line execution
 
-## How to use
+## Installation
+
+#### From toolshed
+
+`clix` is available as a [toolshed bundle](https://cxtoolshed.rbvi.ucsf.edu/apps/chimeraxclix).
+Go to `Tools > More Tools`, find `clix` and click `Install`.
+
+#### From source
 
 1. Get the source code.
    - Get the [latest release](https://github.com/hanjinliu/Chimerax-clix/releases) and unzip it.
@@ -26,12 +33,17 @@ An intelligent command line interface for ChimeraX.
    devel install "path/to/ChimeraX-clix"
    ```
 
-3. If you want to replace the built-in command line interface with `clix`, open
-   `Favorites > Settings...` and define a startup as follows:
-   ```shell
-   ui tool hide "command line interface"
-   ui tool show clix
-   ```
+#### After Installation
+
+If you want to replace the built-in command line interface with `clix`, open
+`Favorites > Settings...` and define a startup as follows:
+
+```shell
+ui tool hide "command line interface"
+ui tool show clix
+```
+
+It's recommended to restart ChimeraX before start using `clix`.
 
 ## Issues/Requests
 
