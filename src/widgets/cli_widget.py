@@ -49,6 +49,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         cursor = self.textCursor()
         cursor.movePosition(QtGui.QTextCursor.MoveOperation.StartOfLine, QtGui.QTextCursor.MoveMode.KeepAnchor)
         self._current_completion_state = self._get_completion_list(cursor.selectedText())
+        print(self._current_completion_state)
         if len(self._current_completion_state.completions) == 0:
             return False
         if len(self._current_completion_state.completions) == 1 and allow_auto:
