@@ -86,10 +86,15 @@ class QCommandLineEdit(QtW.QTextEdit):
     def _list_selection_changed(self, idx: int, text: str):
         if self._current_completion_state.type in ("residue", "model,residue"):
             # set residue name
-            if tooltip := TOOLTIP_FOR_AMINO_ACID.get(text[1:], None):
+            tooltip = TOOLTIP_FOR_AMINO_ACID.get(text[1:], "")
+            if tooltip:
                 self._tooltip_widget.setText(tooltip)
-            self._adjust_tooltip_for_list(idx)
-            self._try_show_tooltip_widget()
+                # adjust the height of the tooltip
+                metrics = QtGui.QFontMetrics(self._tooltip_widget.font())
+                height = min(280, metrics.height() * (tooltip.count("\n") + 1) + 6)
+                self._tooltip_widget.setFixedHeight(height)
+                # move the tooltip
+                self._try_show_tooltip_widget()
         elif winfo := self._commands.get(text, None):
             self._adjust_tooltip_for_list(idx)
             self._tooltip_widget.setWordInfo(winfo, text)
@@ -327,6 +332,9 @@ class QCommandLineEdit(QtW.QTextEdit):
         # resize the widget
         self.set_height_for_block_counts()
         
+        if self._list_widget.count() > 0:
+            self._list_widget.set_row(0)
+        
         # one-line suggestion
         if not self._text_removed_last:
             this_line = self.textCursor().block().text()
@@ -362,7 +370,6 @@ class QCommandLineEdit(QtW.QTextEdit):
 
     def _try_show_list_widget(self):
         self._update_completion_state(allow_auto=False)
-        text = self._current_completion_state.text
         items = self._current_completion_state.completions
         if len(items) == 0:
             self._list_widget.hide()
@@ -375,14 +382,17 @@ class QCommandLineEdit(QtW.QTextEdit):
         return
     
     def _try_show_tooltip_widget(self):
+        tooltip = self._tooltip_widget.toPlainText()
         if (
             not self._tooltip_widget.isVisible()
-            and self._tooltip_widget.toPlainText() != ""
+            and tooltip != ""
             and self._current_completion_state.type != "path"
         ):
-            # show tooltip because there's a command
+            # show tooltip because there's something to show
             self._tooltip_widget.show()
             self.setFocus()
+        elif tooltip == "":
+            self._tooltip_widget.hide()
         
         if self._tooltip_widget.isVisible():
             if self._list_widget.isVisible():
