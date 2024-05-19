@@ -10,7 +10,22 @@
   <!-- Synopsis is a one-line description
        Description is a full multi-line description -->
   <Synopsis>A powerful ChimeraX command line interface</Synopsis>
-  <Description>A powerful ChimeraX command line interface
+  <Description>
+  CliX has several features that will change your experience.
+
+  - Syntax highlighting
+  - Suggestions and completions (command, keyword, file path, model ID, chain ID and more)
+  - Inline suggestion of the matched history
+  - Powerful history search
+  - Multi-line execution
+  - Tooltip for command help
+  
+  If you want to replace the built-in command line interface with `clix`, open
+  `Favorites &gt; Settings...` and define a startup as follows:
+  &gt;&gt;&gt; ui tool hide "command line interface"
+  &gt;&gt;&gt; ui tool show clix
+  ```
+
   </Description>
 
   <!-- Categories is a list where this bundle should appear -->
