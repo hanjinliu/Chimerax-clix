@@ -162,6 +162,24 @@ class QCommandLineEdit(QtW.QTextEdit):
         if last_word.startswith("@"):
             return self._completion_for_atom(last_word, current_command)
         
+        # command keyword completion
+        cmd = current_command or self._current_completion_state.command
+        if winfo := self._commands.get(cmd, None):
+            comp_list: list[str] = []
+            cmd_desc = resolve_cmd_desc(winfo)
+            if cmd_desc is None:
+                return CompletionState(text, [], current_command)
+            for _k in cmd_desc._keyword.keys():
+                if _k.startswith(last_word):
+                    comp_list.append(_k)
+            if len(comp_list) > 0:
+                return CompletionState(
+                    last_word, 
+                    comp_list, 
+                    current_command, ["<i>keyword</i>"] * len(comp_list),
+                    type="keyword",
+                )
+
         # path completion
         if last_word.endswith(("/.", "\\.")):
             # If path string ends with ".", pathlib.Path will ignore it.
@@ -196,22 +214,6 @@ class QCommandLineEdit(QtW.QTextEdit):
                 type="path",
             )
 
-        # command keyword completion
-        cmd = current_command or self._current_completion_state.command
-        if winfo := self._commands.get(cmd, None):
-            comp_list: list[str] = []
-            cmd_desc = resolve_cmd_desc(winfo)
-            if cmd_desc is None:
-                return CompletionState(text, [], current_command)
-            for _k in cmd_desc._keyword.keys():
-                if _k.startswith(last_word):
-                    comp_list.append(_k)
-            return CompletionState(
-                last_word, 
-                comp_list, 
-                current_command, ["<i>keyword</i>"] * len(comp_list),
-                type="keyword",
-            )
         return CompletionState(text, [], current_command)
 
     def _completion_for_model(self, last_word: str, current_command: str | None):
@@ -231,7 +233,7 @@ class QCommandLineEdit(QtW.QTextEdit):
                         ["<i>chain ID</i>"] * len(with_chain_ids), type="model,chain"
                     )
         if ":" in last_word:
-            model_spec, chain_spec = last_word.split("/", 1)
+            model_spec, chain_spec = last_word.split(":", 1)
             for model in self._session.models.list():
                 if _model_to_spec(model) == model_spec and hasattr(model, "nonstandard_residue_names"):
                     with_residues: list[str] = list(
@@ -332,6 +334,10 @@ class QCommandLineEdit(QtW.QTextEdit):
         return None
     
     def _show_inline_suggestion(self, suggested: str):
+        if suggested.startswith(" "):
+            # the first spaces are not visible when using HTML
+            _stripped = suggested.lstrip()
+            suggested = "&nbsp;" * (len(suggested) - len(_stripped)) + _stripped
         self._inline_suggestion_widget.setText(colored(suggested, ColorPreset.SUGGESTION))
         cursor_rect = self.cursorRect()
         label_height = QtGui.QFontMetrics(self.font()).height()
