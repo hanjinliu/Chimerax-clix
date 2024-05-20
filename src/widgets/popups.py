@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
+from html import escape
 from ..types import WordInfo, resolve_cmd_desc
 from .consts import ColorPreset
 from ._utils import colored
@@ -111,12 +112,12 @@ class QTooltipPopup(QtW.QTextEdit):
         strings.append(f"<br><u>{colored('Arguments', 'gray')}</u>")
         for name, typ in cmd_desc._required.items():
             strings.append(
-                f"<b>{name}</b>: {colored(typ.name, ColorPreset.TYPE)}"
+                f"<b>{name}</b>: {colored(_as_name(typ), ColorPreset.TYPE)}"
             )
         # here, some arguments are both optional and keyword
         keywords = cmd_desc._keyword.copy()
         for name, typ in cmd_desc._optional.items():
-            annot = colored(typ.name, ColorPreset.TYPE)
+            annot = colored(_as_name(typ), ColorPreset.TYPE)
             if name in keywords:
                 strings.append(f"<b>{name}</b>: {annot} <i>(optional, keyword)</i>")
                 keywords.pop(name)
@@ -124,8 +125,11 @@ class QTooltipPopup(QtW.QTextEdit):
                 strings.append(f"<b>{name}</b>: {annot} <i>(optional)</i>")
         for name, typ in keywords.items():
             strings.append(
-                f"<b>{name}</b>: {colored(typ.name, ColorPreset.TYPE)} "
+                f"<b>{name}</b>: {colored(_as_name(typ), ColorPreset.TYPE)} "
                 "<i>(keyword)</i>"
             )
         self.setText("<br>".join(strings))
         return None
+
+def _as_name(typ):
+    return escape(typ.name)

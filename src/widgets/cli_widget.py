@@ -443,12 +443,16 @@ class QCommandLineEdit(QtW.QTextEdit):
                     if not mgr._is_searching:
                         self._current_completion_state = CompletionState.empty()
                     return True
+                self._tooltip_widget.hide()
+                self._list_widget.hide()
             elif event.key() == Qt.Key.Key_PageDown:
                 self._inline_suggestion_widget.hide()
                 self._dont_need_inline_suggestion = True
                 if self._list_widget.isVisible():
                     self._list_widget.goto_next_page()
                     return True
+                self._tooltip_widget.hide()
+                self._list_widget.hide()
             elif event.key() == Qt.Key.Key_Up:
                 self._inline_suggestion_widget.hide()
                 self._dont_need_inline_suggestion = True
@@ -465,12 +469,16 @@ class QCommandLineEdit(QtW.QTextEdit):
                     self.setText(HistoryManager.instance().look_for_prev(self.text()))
                     self.setTextCursor(cursor)
                     return True
+                self._tooltip_widget.hide()
+                self._list_widget.hide()
             elif event.key() == Qt.Key.Key_PageUp:
                 self._inline_suggestion_widget.hide()
                 self._dont_need_inline_suggestion = True
                 if self._list_widget.isVisible():
                     self._list_widget.goto_previous_page()
                     return True
+                self._tooltip_widget.hide()
+                self._list_widget.hide()
             
             # left/right arrow keys
             elif event.key() == Qt.Key.Key_Right:
@@ -478,10 +486,20 @@ class QCommandLineEdit(QtW.QTextEdit):
                 if cursor.atBlockEnd() and self._inline_suggestion_widget.isVisible():
                     self._apply_inline_suggestion()
                     return True
+                self._tooltip_widget.hide()
+                self._list_widget.hide()
             elif event.key() == Qt.Key.Key_End:
                 if self._inline_suggestion_widget.isVisible():
                     self._apply_inline_suggestion()
                     return True
+                self._tooltip_widget.hide()
+                self._list_widget.hide()
+            elif event.key() == Qt.Key.Key_Left:
+                self._tooltip_widget.hide()
+                self._list_widget.hide()
+            elif event.key() == Qt.Key.Key_Home:
+                self._tooltip_widget.hide()
+                self._list_widget.hide()
 
             elif event.key() == Qt.Key.Key_Return:
                 if event.modifiers() == Qt.KeyboardModifier.NoModifier:
