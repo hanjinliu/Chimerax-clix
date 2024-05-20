@@ -47,8 +47,8 @@
     <PythonClassifier>License :: Freeware</PythonClassifier>
     <!-- ChimeraX classifiers describe supplied functionality -->
     <!-- Register a graphical interface tool -->
-    <ChimeraXClassifier>ChimeraX :: Tool :: CliX ::
-      General :: CliX</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Tool :: CliX :: General :: CliX</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: clix :: General :: clix command</ChimeraXClassifier>
   </Classifiers>
 
 </BundleInfo>
