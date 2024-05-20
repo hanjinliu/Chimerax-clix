@@ -59,6 +59,11 @@ class CommandHistory(MutableSequence[str]):
             self._codes.remove(code)
         self.append(code)
     
+    def prepend_unique(self, code: str):
+        if code in self._codes:
+            self._codes.remove(code)
+        self.insert(0, code)
+    
     def iter_bidirectional(self, index: int | None = None) -> BidirectionalIterator:
         return BidirectionalIterator(self._codes, index)
     
@@ -88,6 +93,8 @@ class BidirectionalIterator:
 
 class HistoryManager:
     """A class to manage history searching."""
+    
+    _instance: HistoryManager | None = None
 
     def __init__(self):
         self._history = CommandHistory.load()
@@ -95,6 +102,14 @@ class HistoryManager:
         self._current_input: str = ""
         self._is_searching = False
         self._current_suggestion: str | None = None
+        self.__class__._instance = self
+    
+    @classmethod
+    def instance(cls) -> HistoryManager:
+        """Return the singleton instance of the class."""
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
     
     def add_code(self, code: str):
         self._history.append_unique(code)

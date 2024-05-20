@@ -48,7 +48,8 @@
     <!-- ChimeraX classifiers describe supplied functionality -->
     <!-- Register a graphical interface tool -->
     <ChimeraXClassifier>ChimeraX :: Tool :: CliX :: General :: CliX</ChimeraXClassifier>
-    <ChimeraXClassifier>ChimeraX :: Command :: clix :: General :: clix command</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: clix show :: General :: clix show command</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: clix import history :: General :: clix import history command</ChimeraXClassifier>
   </Classifiers>
 
 </BundleInfo>

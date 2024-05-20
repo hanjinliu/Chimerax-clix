@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import re
 from qtpy import QtWidgets as QtW, QtCore, QtGui
-
+from .._history import HistoryManager
 from .consts import _FONT
 
 if TYPE_CHECKING:
@@ -75,7 +75,7 @@ class QHistoryWidget(QtW.QWidget):
         @self._filter._filter_line.textChanged.connect
         def _cb(txt: str):
             if txt == "":
-                self._history_list.set_list(self._history_list._btn._cli_widget._history_mgr.aslist())
+                self._history_list.set_list(HistoryManager.instance().aslist())
             texts = self._filter.run_filter(self._history_list._model._history)
             self._history_list.set_list(texts)
         
@@ -87,7 +87,7 @@ class QHistoryList(QtW.QListView):
         self.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
         self._btn = parent
         self.clicked.connect(self.update_with_current_command)
-        self.set_list(self._btn._cli_widget._history_mgr.aslist())
+        self.set_list(HistoryManager.instance().aslist())
     
     def keyPressEvent(self, e: QtGui.QKeyEvent) -> None:
         if e.key() == QtCore.Qt.Key.Key_Return:

@@ -9,15 +9,32 @@ class _MyAPI(BundleAPI):
     @staticmethod
     def start_tool(session, bi, ti):
         from .tool import ClixTool
+        from chimerax.cmd_line.tool import CommandLine
+        
+        # If text remains in the command line, it may be executed when CliX ends with
+        # an exception.
+        for _tool in session.tools.list():
+            if isinstance(_tool, CommandLine):
+                _tool.text.setCurrentText("")
+                break
+        
         return ClixTool(session, ti.name)
 
     @staticmethod
     def register_command(bi, ci, logger):
         from . import cmd
-        if not ci.name == "clix":
-            return
+        if ci.name == "clix show":
+            func = cmd.clix_show
+            desc = cmd.clix_show_desc
+        elif ci.name == "clix import history":
+            func = cmd.clix_import_history
+            desc = cmd.clix_import_history_desc
+        else:
+            raise ValueError("trying to register unknown command: %s" % ci.name)
         
         from chimerax.core.commands import register
-        register("clix show", cmd.clix_show_desc, cmd.clix_show)
+
+        register(ci.name, desc, func, logger=logger)
+        
 
 bundle_api = _MyAPI()
