@@ -83,6 +83,8 @@ class QCommandLineEdit(QtW.QTextEdit):
         self._tooltip_widget.move(self._list_widget.mapToGlobal(pos))
 
     def _list_selection_changed(self, idx: int, text: str):
+        if not self._list_widget.isVisible():
+            return
         if self._current_completion_state.type in ("residue", "model,residue"):
             # set residue name
             tooltip = TOOLTIP_FOR_AMINO_ACID.get(text[1:], "")
@@ -94,6 +96,8 @@ class QCommandLineEdit(QtW.QTextEdit):
                 self._tooltip_widget.setFixedHeight(height)
                 # move the tooltip
                 self._try_show_tooltip_widget()
+        # elif self._current_completion_state.type == "keyword":
+        #     pass
         elif winfo := self._commands.get(text, None):
             self._adjust_tooltip_for_list(idx)
             self._tooltip_widget.setWordInfo(winfo, text)
@@ -136,7 +140,7 @@ class QCommandLineEdit(QtW.QTextEdit):
                 #   toolshed install ...
                 # to `matched_commands`
                 matched_commands.append(command_name)
-            elif text_strip.startswith(command_name):
+            elif text_strip == command_name or text_strip.startswith(command_name.rstrip() + " "):
                 current_command = command_name
         if len(matched_commands) > 0:
             if len(matched_commands) == 1 and matched_commands[0] == text_strip:
@@ -530,6 +534,8 @@ class QCommandLineEdit(QtW.QTextEdit):
                 self._dont_need_inline_suggestion = True
             elif event.key() == Qt.Key.Key_X and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
                 self._dont_need_inline_suggestion = True
+            elif event.key() == Qt.Key.Key_V and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+                self._current_completion_state = CompletionState.empty()
 
         elif event.type() == QtCore.QEvent.Type.Move:
             self._close_popups()
