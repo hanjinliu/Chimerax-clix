@@ -1,5 +1,5 @@
 from chimerax.core.commands import CmdDesc, run      # Command description
-from chimerax.core.commands.cli import NoArg
+from chimerax.core.commands.cli import NoArg, EnumOf
 import json
 from .user_data import COMMAND_HISTORY_PATH
 
@@ -48,4 +48,15 @@ clix_import_history_desc = CmdDesc(
         ("include_errors", NoArg),
     ],
     synopsis="import history from the built-in CLI.",
+)
+
+def clix_preference(session, area: str = "side"):
+    from ._preference import save_preference
+
+    save_preference(area=area)
+    return None
+
+clix_preference_desc = CmdDesc(
+    keyword=[("area", EnumOf(["side", "bottom", "top"]))],
+    synopsis="set preference of CliX.",
 )

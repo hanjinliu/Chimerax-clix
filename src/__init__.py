@@ -29,8 +29,11 @@ class _MyAPI(BundleAPI):
         elif ci.name == "clix import history":
             func = cmd.clix_import_history
             desc = cmd.clix_import_history_desc
+        elif ci.name == "clix preference":
+            func = cmd.clix_preference
+            desc = cmd.clix_preference_desc
         else:
-            raise ValueError("trying to register unknown command: %s" % ci.name)
+            raise ValueError(f"trying to register unknown command: {ci.name}")
         
         from chimerax.core.commands import register
 
