@@ -5,18 +5,24 @@ from chimerax.core.commands.cli import (
     CenterArg, CoordSysArg, PlaceArg, Bounded, SurfacesArg, SurfaceArg, ListOf,
     ModelIdArg, ModelArg, ModelsArg, TopModelsArg, ObjectsArg, RestOfLine, 
     WholeRestOfLine, FileNameArg, OpenFileNameArg, SaveFileNameArg, OpenFolderNameArg, 
-    SaveFolderNameArg, OpenFileNamesArg, AttrNameArg, PasswordArg, CharacterArg
+    SaveFolderNameArg, OpenFileNamesArg, AttrNameArg, PasswordArg, CharacterArg,
+    TupleOf, SetOf, RepeatOf, OnOffArg, DottedTupleOf,
 )
 from chimerax.core.commands.colorarg import (
     ColorArg, Color8Arg, Color8TupleArg, ColormapArg, ColormapRangeArg
 )
+
 from chimerax.core.commands.atomspec import AtomSpecArg
+from chimerax.map import MapArg, MapsArg, MapRegionArg, MapStepArg
+from chimerax.atomic import AtomArg, AtomsArg
 
 _STR_MAP: dict[type, str] = {
     NoArg: "no argument",
     NoneArg: "None",
-    BoolArg: "bool",
+    BoolArg: "true/false",
+    OnOffArg: "on/off",
     StringArg: "str",
+    CharacterArg: "single character",
     EmptyArg: "empty",
     IntArg: "int",
     Int2Arg: "(int, int)",
@@ -30,7 +36,7 @@ _STR_MAP: dict[type, str] = {
     FloatsArg: "(float, ...)",
     NonNegativeFloatArg: "float (&le; 0)",
     PositiveFloatArg: "float (&lt; 0)",
-    FloatOrDeltaArg: "float or delta",
+    FloatOrDeltaArg: "float (&lt; 0) or +/- delta",
     FileNameArg: "file name", 
     OpenFileNameArg: "existing file path", 
     SaveFileNameArg: "file path", 
@@ -50,16 +56,28 @@ _STR_MAP: dict[type, str] = {
     ModelArg: "model", 
     ModelsArg: "models",
     AtomSpecArg: "atom-spec",
+    SurfaceArg: "surface",
+    SurfacesArg: "surfaces",
+    ModelIdArg: "model ID",
+    TopModelsArg: "top models",
+    MapArg: "map",
+    MapsArg: "maps",
+    MapRegionArg: "map region (\"i1,j1,k1,i2,j2,k2\")",
+    MapStepArg: "map step (\"N\" or \"Nx,Ny,Nz\")",
+    AtomArg: "atom", 
+    AtomsArg: "atoms",
+    AttrNameArg: "Python attribute name",
+    CoordSysArg: "coordinate system",
 }
 
 def _cls_to_str(cls: type):
     return _STR_MAP.get(cls, cls.__name__)
 
 def _enum_to_str(ann: EnumOf):
-    return "{" + ", ".join(ann.values) + "}"
+    return "{" + ", ".join(repr(v) for v in ann.values) + "}"
 
 def _dyn_enum_to_str(ann: DynamicEnum):
-    return "{" + ", ".join(ann.values_func()) + "}"
+    return "{" + ", ".join(repr(v) for v in ann.values_func()) + "}"
 
 def _bounded_to_str(ann: Bounded):
     base_anno = parse_annotation(ann.anno)
@@ -75,10 +93,24 @@ def _bounded_to_str(ann: Bounded):
         return f"{base_anno} (X {op} {ann.max})"
 
 def _or_to_str(ann: Or):
-    return "(" + ", ".join(parse_annotation(each) for each in ann.annotations) + ")"
+    return "(" + " or ".join(parse_annotation(each) for each in ann.annotations) + ")"
 
 def _list_to_str(ann: ListOf):
     return f"list of {parse_annotation(ann.annotation)}"
+
+def _tuple_to_str(ann: TupleOf):
+    size = ann.size
+    typ = parse_annotation(ann.annotation)
+    return f"({typ}, ...)" if size is None else f"({', '.join(typ for _ in range(size))}"
+
+def _set_to_str(ann: SetOf):
+    return f"set of {parse_annotation(ann.annotation)}"
+
+def _repeat_to_str(ann: RepeatOf):
+    return f"{parse_annotation(ann.annotation)} (repeatable)"
+
+def _dotted_tuple_to_str(ann: DottedTupleOf):
+    return "dotted integers (i.j format)"
 
 def parse_annotation(ann) -> str:
     if isinstance(ann, type):
@@ -93,5 +125,13 @@ def parse_annotation(ann) -> str:
         return _or_to_str(ann)
     if isinstance(ann, ListOf):
         return _list_to_str(ann)
+    if isinstance(ann, TupleOf):
+        return _tuple_to_str(ann)
+    if isinstance(ann, SetOf):
+        return _set_to_str(ann)
+    if isinstance(ann, RepeatOf):
+        return _repeat_to_str(ann)
+    if isinstance(ann, DottedTupleOf):
+        return _dotted_tuple_to_str(ann)
     ann_str = str(ann)
     return ann_str.replace("<", "&lt;").replace(">", "&gt;")
