@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 from typing import MutableSequence, Sequence
-from pathlib import Path
-from platformdirs import user_data_dir
 import json
+from .user_data import CLIX_DATA_DIR, CLIX_HISTORY_FILE
 
-DATA_DIR = Path(user_data_dir("chimerax-clix"))
-HISTORY_FILE = DATA_DIR / "history.json"
 
 class CommandHistory(MutableSequence[str]):
     def __init__(self, codes: Sequence[str] = (), max_size: int = 120):
@@ -37,17 +34,17 @@ class CommandHistory(MutableSequence[str]):
         return reversed(self._codes)
     
     def save(self):
-        if not DATA_DIR.exists():
-            DATA_DIR.mkdir(parents=True)
-        with HISTORY_FILE.open("w") as f:
+        if not CLIX_DATA_DIR.exists():
+            CLIX_DATA_DIR.mkdir(parents=True)
+        with CLIX_HISTORY_FILE.open("w") as f:
             json.dump(self._codes, f)
     
     @classmethod
     def load(cls, max_size: int = 120) -> CommandHistory:
-        if not HISTORY_FILE.exists():
+        if not CLIX_HISTORY_FILE.exists():
             return CommandHistory(max_size=max_size)
         try:
-            with HISTORY_FILE.open() as f:
+            with CLIX_HISTORY_FILE.open() as f:
                 codes = json.load(f)
             self = CommandHistory(codes, max_size)
         except Exception:

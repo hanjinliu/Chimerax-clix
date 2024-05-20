@@ -50,6 +50,7 @@
     <ChimeraXClassifier>ChimeraX :: Tool :: CliX :: General :: CliX</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Command :: clix show :: General :: clix show command</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Command :: clix import history :: General :: clix import history command</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: clix preference :: General :: clix preference command</ChimeraXClassifier>
   </Classifiers>
 
 </BundleInfo>
