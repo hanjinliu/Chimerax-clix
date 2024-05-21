@@ -20,7 +20,12 @@ def load_preference() -> Preference:
     if not CLIX_PREFERENCE_FILE.exists():
         return Preference()
     with CLIX_PREFERENCE_FILE.open("r") as f:
-        return Preference(**json.load(f))
+        js = json.load(f)
+        kwargs = {}
+        for key, value in js.items():
+            if key in Preference.__annotations__:
+                kwargs[key] = value
+        return Preference(**kwargs)
 
 def save_preference(**kwargs):
     if not CLIX_DATA_DIR.exists():
