@@ -48,14 +48,15 @@ def complete_path(last_word: str, current_command: str) -> CompletionState | Non
 
 def complete_keyword_name_or_value(
     winfo: WordInfo, pref: list[str], last_word: str, current_command: str, text: str
-):
+) -> CompletionState | None:
     comp_list: list[str] = []
     cmd_desc = resolve_cmd_desc(winfo)
     if cmd_desc is None:
         return CompletionState(text, [], current_command)
     
     last_pref = pref[-1]
-    if last_pref in cmd_desc._keyword:
+    keyword_just_typed = last_pref in cmd_desc._keyword
+    if keyword_just_typed:
         last_annot = cmd_desc._keyword[last_pref]
         if is_enumof(last_annot):
             values = to_list_of_str(last_annot.values, startswith=last_word)
@@ -86,6 +87,9 @@ def complete_keyword_name_or_value(
                 type="keyword-value",
                 keyword_type=cmd_desc._keyword[last_pref],
             )
+    
+    if keyword_just_typed and not is_noarg(cmd_desc._keyword[last_pref]):
+        return None
     for _k in cmd_desc._keyword.keys():
         if _k.startswith(last_word):
             comp_list.append(_k)
@@ -97,6 +101,7 @@ def complete_keyword_name_or_value(
             info=["<i>keyword</i>"] * len(comp_list),
             type="keyword",
         )
+    return None
 
 def is_enumof(annotation) -> bool:
     return type(annotation).__name__ == "EnumOf"
@@ -106,6 +111,9 @@ def is_dynamic_enum(annotation) -> bool:
 
 def is_boolean(annotation) -> bool:
     return type(annotation).__name__ == "BoolArg"
+
+def is_noarg(annotation) -> bool:
+    return type(annotation).__name__ == "NoArg"
 
 def to_list_of_str(it: Iterable[Any], startswith: str = "") -> list[str]:
     out: list[str] = []
