@@ -1,5 +1,5 @@
 from chimerax.core.commands import CmdDesc, run      # Command description
-from chimerax.core.commands.cli import NoArg, EnumOf
+from chimerax.core.commands.cli import NoArg, BoolArg, EnumOf
 import json
 from .user_data import COMMAND_HISTORY_PATH
 
@@ -50,13 +50,36 @@ clix_import_history_desc = CmdDesc(
     synopsis="import history from the built-in CLI.",
 )
 
-def clix_preference(session, area: str = "side"):
-    from ._preference import save_preference
+def clix_preference(
+    session, 
+    area: str | None = None,
+    hide_title_bar: bool | None = None,
+    show_label: bool | None = None,
+    enter_completion: bool | None = None,
+    show: bool = False,
+):
+    from ._preference import load_preference, save_preference
 
-    save_preference(area=area)
+    old_pref = load_preference()
+    new_pref = save_preference(
+        area=area,
+        hide_title_bar=hide_title_bar,
+        show_label=show_label,
+        enter_completion=enter_completion,
+    )
+    if show:
+        print(new_pref.as_repr())
+    if old_pref != new_pref:
+        print("Please restart CliX to apply the changes.")
     return None
 
 clix_preference_desc = CmdDesc(
-    keyword=[("area", EnumOf(["side", "bottom", "top"]))],
+    keyword=[
+        ("area", EnumOf(["side", "bottom", "top"])),
+        ("hide_title_bar", BoolArg),
+        ("show_label", BoolArg),
+        ("enter_completion", BoolArg),
+        ("show", NoArg),
+    ],
     synopsis="set preference of CliX.",
 )

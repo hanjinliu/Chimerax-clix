@@ -6,6 +6,15 @@ from dataclasses import dataclass, asdict
 @dataclass
 class Preference:
     area: Literal["side", "bottom", "top"] = "side"
+    hide_title_bar: bool = False
+    show_label: bool = False
+    enter_completion: bool = True
+
+    def as_repr(self) -> str:
+        return "\n".join(f"{k} = {v!r}" for k, v in asdict(self).items())
+    
+    def __eq__(self, other):
+        return asdict(self) == asdict(other)
 
 def load_preference() -> Preference:
     if not CLIX_PREFERENCE_FILE.exists():
@@ -18,6 +27,8 @@ def save_preference(**kwargs):
         CLIX_DATA_DIR.mkdir(parents=True)
     pref = load_preference()
     for k, v in kwargs.items():
-        setattr(pref, k, v)
+        if v is not None:
+            setattr(pref, k, v)
     with CLIX_PREFERENCE_FILE.open("w") as f:
         json.dump(asdict(pref), f)
+    return pref

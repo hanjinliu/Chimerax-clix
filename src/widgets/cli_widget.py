@@ -9,16 +9,17 @@ from ..completion import (
     complete_chain, complete_residue, complete_atom
 )
 from chimerax.core.commands import run
-from .consts import _FONT, ColorPreset, ALL_ATOMS, ALL_AMINO_ACIDS, TOOLTIP_FOR_AMINO_ACID
+from .consts import _FONT, ColorPreset, TOOLTIP_FOR_AMINO_ACID
 from ._utils import colored
 from .popups import QCompletionPopup, QTooltipPopup
 from .highlighter import QCommandHighlighter
+from .._preference import Preference
 
 class QSuggestionLabel(QtW.QLabel):
     pass
 
 class QCommandLineEdit(QtW.QTextEdit):
-    def __init__(self, commands: dict[str, WordInfo], session):
+    def __init__(self, commands: dict[str, WordInfo], session, preference: Preference):
         super().__init__()
         self.setFont(QtGui.QFont(_FONT))
         self.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
@@ -33,6 +34,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         self._highlighter = QCommandHighlighter(self)
         self.set_height_for_block_counts()
         self._dont_need_inline_suggestion = False
+        self._preference = preference
 
     def _update_completion_state(self, allow_auto: bool = False) -> bool:
         cursor = self.textCursor()
@@ -369,7 +371,7 @@ class QCommandLineEdit(QtW.QTextEdit):
 
             elif event.key() == Qt.Key.Key_Return:
                 if event.modifiers() == Qt.KeyboardModifier.NoModifier:
-                    if self._list_widget.isVisible():
+                    if self._list_widget.isVisible() and self._preference.enter_completion:
                         self._complete_with_current_item()
                     else:
                         self.run_command()
@@ -423,6 +425,3 @@ class QCommandLineEdit(QtW.QTextEdit):
         if self._inline_suggestion_widget.isVisible():
             self._inline_suggestion_widget.hide()
         return None
-
-def _model_to_spec(model):
-    return "#" + ".".join(str(_id) for _id in model.id)
