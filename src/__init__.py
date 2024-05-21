@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from chimerax.core.toolshed import BundleAPI
 
-class _MyAPI(BundleAPI):
+class CliXAPI(BundleAPI):
 
     api_version = 1
 
@@ -40,4 +40,4 @@ class _MyAPI(BundleAPI):
         register(ci.name, desc, func, logger=logger)
         
 
-bundle_api = _MyAPI()
+bundle_api = CliXAPI()

@@ -1,28 +1,18 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Iterable, NamedTuple
-
 from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
-from ..types import WordInfo, resolve_cmd_desc
+from ..types import WordInfo
 from .._history import HistoryManager
+from ..completion import (
+    CompletionState, complete_path, complete_keyword_name_or_value, complete_model, 
+    complete_chain, complete_residue, complete_atom
+)
 from chimerax.core.commands import run
 from .consts import _FONT, ColorPreset, ALL_ATOMS, ALL_AMINO_ACIDS, TOOLTIP_FOR_AMINO_ACID
 from ._utils import colored
 from .popups import QCompletionPopup, QTooltipPopup
 from .highlighter import QCommandHighlighter
-
-class CompletionState(NamedTuple):
-    text: str
-    completions: list[str]
-    command: str | None = None
-    info: list[str] | None = None
-    type: str = ""
-    
-    @classmethod
-    def empty(cls) -> CompletionState:
-        return cls("", [])
 
 class QSuggestionLabel(QtW.QLabel):
     pass
@@ -96,8 +86,8 @@ class QCommandLineEdit(QtW.QTextEdit):
                 self._tooltip_widget.setFixedHeight(height)
                 # move the tooltip
                 self._try_show_tooltip_widget()
-        # elif self._current_completion_state.type == "keyword":
-        #     pass
+        elif self._current_completion_state.type == "keyword":
+            pass
         elif winfo := self._commands.get(text, None):
             self._adjust_tooltip_for_list(idx)
             self._tooltip_widget.setWordInfo(winfo, text)
@@ -160,156 +150,28 @@ class QCommandLineEdit(QtW.QTextEdit):
     
         # attribute completion
         *pref, last_word = text.rsplit(" ")
-        if pref == [] or last_word == "":
+        if pref == []:
             return CompletionState(text, [], current_command)
         if last_word.startswith("#"):
-            return self._completion_for_model(last_word, current_command)
+            return complete_model(self._session, last_word, current_command)
         if last_word.startswith("/"):
-            return self._completion_for_chain(last_word, current_command)
+            return complete_chain(self._session, last_word, current_command)
         if last_word.startswith(":"):
-            return self._completion_for_residue(last_word, current_command)
+            return complete_residue(self._session, last_word, current_command)
         if last_word.startswith("@"):
-            return self._completion_for_atom(last_word, current_command)
-        
-        # command keyword completion
+            return complete_atom(self._session, last_word, current_command)
+
         cmd = current_command or self._current_completion_state.command
         if winfo := self._commands.get(cmd, None):
-            comp_list: list[str] = []
-            cmd_desc = resolve_cmd_desc(winfo)
-            if cmd_desc is None:
-                return CompletionState(text, [], current_command)
-            for _k in cmd_desc._keyword.keys():
-                if _k.startswith(last_word):
-                    comp_list.append(_k)
-            if len(comp_list) > 0:
-                return CompletionState(
-                    last_word, 
-                    comp_list, 
-                    current_command, ["<i>keyword</i>"] * len(comp_list),
-                    type="keyword",
-                )
+            # command keyword name/value completion
+            if state := complete_keyword_name_or_value(winfo, pref, last_word, current_command, text):
+                return state
 
         # path completion
-        if last_word.endswith(("/.", "\\.")):
-            # If path string ends with ".", pathlib.Path will ignore it.
-            # Here, we replace it with "$" to avoid this behavior.
-            _maybe_path = Path(last_word[:-1].lstrip("'").lstrip('"')).absolute() / "$"
-        else:
-            _maybe_path = Path(last_word.lstrip("'").lstrip('"')).absolute()
-        if _maybe_path.exists():
-            if _maybe_path.is_dir():
-                if last_word.endswith(("/", "\\")):
-                    sep = ""
-                else:
-                    sep = "\\" if "\\" in last_word else "/"
-                return CompletionState(
-                    "",
-                    [sep + _p for _p in _iter_upto(p.name for p in _maybe_path.glob("*"))], 
-                    current_command,
-                    type="path",
-                )
-        elif _maybe_path.parent.exists() and _maybe_path != Path("/").absolute():
-            _iter = _maybe_path.parent.glob("*")
-            pref = _maybe_path.as_posix().rsplit("/", 1)[1]
-            if pref == "$":
-                pref = "."
-            return CompletionState(
-                pref,
-                _iter_upto(
-                    (p.name for p in _iter if p.name.startswith(pref)),
-                    include_hidden=pref.startswith(".") or pref == "$",
-                ),
-                current_command,
-                type="path",
-            )
+        if state := complete_path(last_word, current_command):
+            return state
 
         return CompletionState(text, [], current_command)
-
-    def _completion_for_model(self, last_word: str, current_command: str | None):
-        # model ID completion
-        # "#" -> "#1 (model name)" etc.
-        # try model+chain specifiction completion such as "#1/B"
-        if "/" in last_word:
-            model_spec, chain_spec = last_word.split("/", 1)
-            for model in self._session.models.list():
-                if _model_to_spec(model) == model_spec and hasattr(model, "chains"):
-                    with_chain_ids: list[str] = list(
-                        f"{model_spec}/{_i}" for _i in model.chains.chain_ids
-                        if _i.startswith(chain_spec)
-                    )
-                    return CompletionState(
-                        last_word, with_chain_ids, current_command, 
-                        ["<i>chain ID</i>"] * len(with_chain_ids), type="model,chain"
-                    )
-        if ":" in last_word:
-            model_spec, chain_spec = last_word.split(":", 1)
-            for model in self._session.models.list():
-                if _model_to_spec(model) == model_spec and hasattr(model, "nonstandard_residue_names"):
-                    with_residues: list[str] = list(
-                        f"{model_spec}:{_r}" for _r in model.nonstandard_residue_names
-                        if _r.startswith(chain_spec)
-                    )
-                    return CompletionState(
-                        last_word, with_residues, current_command, 
-                        ["<i>residue</i>"] * len(with_residues), type="model,residue"
-                    )
-        if "@" in last_word:
-            _, atom_spec = last_word.split("@", 1)
-            all_atoms = [f"@{_a}" for _a in ALL_ATOMS if _a.startswith(atom_spec)]
-            return CompletionState(
-                last_word, all_atoms, current_command, 
-                ["<i>atom</i>"] * len(all_atoms), type="model,atom"
-            )
-        comps = []
-        info = []
-        for model in self._session.models.list():
-            spec = _model_to_spec(model)
-            if spec.startswith(last_word):
-                comps.append(_model_to_spec(model))
-                info.append(model.name)
-        return CompletionState(last_word, comps, current_command, info, type="model")
-
-    def _completion_for_chain(self, last_word: str, current_command: str | None):
-        # collect all the available chain IDs
-        all_chain_ids: set[str] = set()
-        for model in self._session.models.list():
-            if not hasattr(model, "chains"):
-                continue
-            all_chain_ids.update(
-                f"/{_i}" for _i in model.chains.chain_ids if _i.startswith(last_word[1:])
-            )
-        all_chain_ids = sorted(all_chain_ids)
-        # Now, all_chain_ids is like ["/A", "/B", ...]
-        return CompletionState(
-            last_word, all_chain_ids, current_command, 
-            ["<i>chain ID</i>"] * len(all_chain_ids), type="chain"
-        )
-    
-    def _completion_for_residue(self, last_word: str, current_command: str | None):
-        all_non_std_residues: set[str] = set()
-        for model in self._session.models.list():
-            if not hasattr(model, "nonstandard_residue_names"):
-                continue
-            all_non_std_residues.update(
-                f":{_r}" for _r in model.nonstandard_residue_names 
-                if _r.startswith(last_word[1:])
-            )
-        completions = sorted(all_non_std_residues)
-        # Now, completions is like [":ATP", ":GTP", ...]
-        # Adds the standard amino acids
-        completions.extend(f":{_a}" for _a in ALL_AMINO_ACIDS if _a.startswith(last_word[1:]))
-        return CompletionState(
-            last_word, completions, current_command, 
-            ["<i>residue</i>"] * len(all_non_std_residues) + ["<i>amino acid</i>"] * len(ALL_AMINO_ACIDS),
-            type="residue",
-        )
-
-    def _completion_for_atom(self, last_word: str, current_command: str | None):
-        all_atoms = [f"@{_a}" for _a in ALL_ATOMS if _a.startswith(last_word[1:])]
-        return CompletionState(
-            last_word, all_atoms, current_command, 
-            ["<i>atom</i>"] * len(all_atoms), type="atom",
-        )
    
     def _on_text_changed(self):
         self._inline_suggestion_widget.hide()
@@ -564,9 +426,3 @@ class QCommandLineEdit(QtW.QTextEdit):
 
 def _model_to_spec(model):
     return "#" + ".".join(str(_id) for _id in model.id)
-
-def _iter_upto(it: Iterable[str], n: int = 64, include_hidden: bool = False) -> list[str]:
-    if include_hidden:
-        return [a for _, a in zip(range(n), it)]
-    else:
-        return [a for _, a in zip(range(n), it) if not a.startswith(".")]

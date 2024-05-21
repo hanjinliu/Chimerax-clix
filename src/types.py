@@ -11,6 +11,9 @@ class CmdDesc:
     _keyword: dict[str, Any]
     synopsis: str | None
 
+class Annotation:
+    name: str
+
 _ALWAYS_DEFERRED: set[WordInfo] = set()
 
 def resolve_cmd_desc(winfo: WordInfo) -> CmdDesc | None:
