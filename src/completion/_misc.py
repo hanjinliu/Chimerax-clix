@@ -110,7 +110,7 @@ def is_dynamic_enum(annotation) -> bool:
     return type(annotation).__name__ == "DynamicEnum"
 
 def is_boolean(annotation) -> bool:
-    return type(annotation).__name__ == "BoolArg"
+    return getattr(annotation, "name", "") == "true or false"
 
 def is_noarg(annotation) -> bool:
     return type(annotation).__name__ == "NoArg"
