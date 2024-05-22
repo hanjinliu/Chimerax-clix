@@ -155,11 +155,11 @@ class QCommandLineEdit(QtW.QTextEdit):
         if pref == []:
             return CompletionState(text, [], current_command)
         if last_word.startswith("#"):
-            return complete_model(self._session, last_word, current_command)
+            return complete_model(self._session.models.list(), last_word, current_command)
         if last_word.startswith("/"):
-            return complete_chain(self._session, last_word, current_command)
+            return complete_chain(self._session.models.list(), last_word, current_command)
         if last_word.startswith(":"):
-            return complete_residue(self._session, last_word, current_command)
+            return complete_residue(self._session.models.list(), last_word, current_command)
         if last_word.startswith("@"):
             return complete_atom(self._session, last_word, current_command)
 
