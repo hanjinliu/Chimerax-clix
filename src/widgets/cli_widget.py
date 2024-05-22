@@ -88,7 +88,7 @@ class QCommandLineEdit(QtW.QTextEdit):
                 self._tooltip_widget.setFixedHeight(height)
                 # move the tooltip
                 self._try_show_tooltip_widget()
-        elif self._current_completion_state.type == "keyword":
+        elif self._current_completion_state.type in ("keyword", "selector"):
             pass
         elif winfo := self._commands.get(text, None):
             self._adjust_tooltip_for_list(idx)
@@ -117,7 +117,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         return suggestion_widget
 
     def _get_completion_list(self, text: str) -> CompletionState:
-        if text == "":
+        if text == "" or text.startswith("#"):
             return CompletionState(text, [], type="empty-text")
 
         # command completion
@@ -205,6 +205,9 @@ class QCommandLineEdit(QtW.QTextEdit):
         # one-line suggestion
         if not self._dont_need_inline_suggestion:
             this_line = self.textCursor().block().text()
+            if this_line.startswith("#"):
+                # comment line does not need suggestion
+                return None
             if suggested := HistoryManager.instance().suggest(this_line):
                 self._show_inline_suggestion(suggested)
         return None
