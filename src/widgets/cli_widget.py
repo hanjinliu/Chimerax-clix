@@ -65,21 +65,20 @@ class QCommandLineEdit(QtW.QTextEdit):
 
     def _adjust_tooltip_for_list(self, idx: int):
         item_rect = self._list_widget.visualItemRect(self._list_widget.item(idx))
-        rect = self._list_widget.rect()
-        rel_dist_from_bottom = (rect.bottom() - item_rect.bottom()) / rect.height()
-        if rel_dist_from_bottom > 0.5:
-            pos = item_rect.topRight()
-        else:
-            pos = item_rect.bottomRight() - QtCore.QPoint(0, self._tooltip_widget.height())
+        pos = self._list_widget.mapToGlobal(item_rect.topRight())
+        if _is_too_bottom(pos.y() + self._tooltip_widget.height()):
+            pos = self._list_widget.mapToGlobal(
+                item_rect.bottomRight() - QtCore.QPoint(0, self._tooltip_widget.height())
+            )
         pos.setX(pos.x() + 10)
-        self._tooltip_widget.move(self._list_widget.mapToGlobal(pos))
+        self._tooltip_widget.move(pos)
 
     def _list_selection_changed(self, idx: int, text: str):
         if not self._list_widget.isVisible():
             return
         if self._current_completion_state.type in ("residue", "model,residue"):
             # set residue name
-            tooltip = TOOLTIP_FOR_AMINO_ACID.get(text[1:], "")
+            tooltip = TOOLTIP_FOR_AMINO_ACID.get(text.split(":")[-1], "")
             if tooltip:
                 self._tooltip_widget.setText(tooltip)
                 # adjust the height of the tooltip
@@ -247,11 +246,15 @@ class QCommandLineEdit(QtW.QTextEdit):
             self._list_widget.hide()
             return
         self._list_widget.add_items_with_highlight(self._current_completion_state)
+        self._list_widget.resizeForContents()
         if not self._list_widget.isVisible():
             self._list_widget.show()
-        self._list_widget.move(self.mapToGlobal(self.cursorRect().bottomLeft()))
-        self._list_widget.resizeForContents()
-        return
+        _height = self._list_widget.height()
+        pos = self.mapToGlobal(self.cursorRect().bottomLeft())
+        if _is_too_bottom(_height + pos.y()):
+            pos = self.mapToGlobal(self.cursorRect().topLeft()) - QtCore.QPoint(0, _height)
+        self._list_widget.move(pos)
+        return None
     
     def _try_show_tooltip_widget(self):
         tooltip = self._tooltip_widget.toPlainText()
@@ -272,7 +275,11 @@ class QCommandLineEdit(QtW.QTextEdit):
                 self._adjust_tooltip_for_list(self._list_widget.currentRow())
             else:
                 # show beside the completion list
-                self._tooltip_widget.move(self.mapToGlobal(self.cursorRect().bottomRight()))
+                _height = self._tooltip_widget.height()
+                pos = self.mapToGlobal(self.cursorRect().bottomRight())
+                if _is_too_bottom(pos.y() + _height):
+                    pos = self.mapToGlobal(self.cursorRect().topRight()) - QtCore.QPoint(0, _height)
+                self._tooltip_widget.move(pos)
         return None
 
     def _complete_with(self, comp: str):
@@ -470,3 +477,7 @@ class QCommandLineEdit(QtW.QTextEdit):
     def _close_tooltip_and_list(self):
         self._tooltip_widget.hide()
         self._list_widget.hide()
+
+def _is_too_bottom(pos: int):
+    screen_bottom = QtW.QApplication.primaryScreen().geometry().bottom()
+    return pos > screen_bottom

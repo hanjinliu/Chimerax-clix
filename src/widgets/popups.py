@@ -97,7 +97,7 @@ class QCompletionPopup(QtW.QListWidget):
 class QTooltipPopup(QtW.QTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedWidth(320)
+        self.setFixedWidth(360)
         self.setReadOnly(True)
         self.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
     
