@@ -1,6 +1,6 @@
 from chimerax.core.tools import ToolInstance
 from qtpy import QtWidgets as QtW
-from .widgets import QCommandLineEdit, QShowHistoryButton
+from .widgets import QCommandLineEdit, QShowHistoryButton, QShowDialogButton
 from ._preference import load_preference
 
 class ClixTool(ToolInstance):
@@ -18,15 +18,19 @@ class ClixTool(ToolInstance):
         self.tool_window = MainToolWindow(self, hide_title_bar=self._preference.hide_title_bar)
         self._clix_widget = QCommandLineEdit(dict(iter_all_commands()), session, self._preference)
         self._history_button = QShowHistoryButton(self._clix_widget)
+        self._preference_button = QShowDialogButton()
         self._build_ui()
 
     def _build_ui(self):
         layout = QtW.QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        if self._preference.show_label:
-            layout.addWidget(QtW.QLabel("CliX: "))
+        layout.setSpacing(2)
+        label = QtW.QLabel("CliX: ")
+        label.setVisible(self._preference.show_label)
+        layout.addWidget(label)
         layout.addWidget(self._clix_widget)
         layout.addWidget(self._history_button)
+        layout.addWidget(self._preference_button)
 
         # Set the layout as the contents of our window
         self.tool_window.ui_area.setLayout(layout)
