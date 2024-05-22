@@ -5,7 +5,7 @@ from dataclasses import dataclass, asdict
 
 @dataclass
 class Preference:
-    area: Literal["side", "bottom", "top"] = "side"
+    area: Literal["side", "bottom", "top"] = "bottom"
     hide_title_bar: bool = False
     show_label: bool = False
     enter_completion: bool = True
