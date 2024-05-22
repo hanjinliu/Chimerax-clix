@@ -56,6 +56,7 @@ def clix_preference(
     hide_title_bar: bool | None = None,
     show_label: bool | None = None,
     enter_completion: bool | None = None,
+    auto_focus: bool | None = None,
     show: bool = False,
 ):
     from ._preference import load_preference, save_preference
@@ -66,6 +67,7 @@ def clix_preference(
         hide_title_bar=hide_title_bar,
         show_label=show_label,
         enter_completion=enter_completion,
+        auto_focus=auto_focus,
     )
     if show:
         print(new_pref.as_repr())
@@ -79,6 +81,7 @@ clix_preference_desc = CmdDesc(
         ("hide_title_bar", BoolArg),
         ("show_label", BoolArg),
         ("enter_completion", BoolArg),
+        ("auto_focus", BoolArg),
         ("show", NoArg),
     ],
     synopsis="set preference of CliX.",
