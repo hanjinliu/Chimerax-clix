@@ -33,7 +33,9 @@ Go to `Tools > More Tools`, find `clix` and click `Install`.
    devel install "path/to/ChimeraX-clix"
    ```
 
-#### After Installation
+## Start CliX
+
+CliX widget is under `Tools > General > CliX`.
 
 If you want to replace the built-in command line interface with `clix`, open
 `Favorites > Settings...` and define a startup as follows:
@@ -42,8 +44,6 @@ If you want to replace the built-in command line interface with `clix`, open
 ui tool hide "command line interface"
 ui tool show clix
 ```
-
-It's recommended to restart ChimeraX before start using `clix`.
 
 ## Issues/Requests
 
