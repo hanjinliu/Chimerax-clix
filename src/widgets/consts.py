@@ -17,6 +17,7 @@ class ColorPreset:
     KEYWORD = "#808080"
     NUMBER = "#2CA32C"
     SUGGESTION = "#B2B2B2"
+    COMMENT = "#A6A6B6"
 
 ALL_ATOMS = ["Ca", "Cb", "C", "N", "O", "OH"]
 ALL_AMINO_ACIDS = [

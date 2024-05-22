@@ -53,7 +53,7 @@ class QCompletionPopup(QtW.QListWidget):
             if item.startswith(prefix):
                 prefix, item = item[:len(prefix)], item[len(prefix):]
             else:
-                item = ""
+                continue
             if prefix:
                 text = f"<b>{colored(prefix, ColorPreset.MATCH)}</b>{item}"
             else:

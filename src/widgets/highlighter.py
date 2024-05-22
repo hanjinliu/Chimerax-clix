@@ -20,6 +20,12 @@ class QCommandHighlighter(QtGui.QSyntaxHighlighter):
         self._parent = parent
     
     def highlightBlock(self, text: str):
+        if text.startswith("#"):
+            # comment
+            fmt = QtGui.QTextCharFormat()
+            fmt.setForeground(QtGui.QColor(ColorPreset.COMMENT))
+            self.setFormat(0, len(text), fmt)
+            return None
         cur_command = []
         cur_start = 0
         cur_stop = 0
@@ -48,7 +54,7 @@ class QCommandHighlighter(QtGui.QSyntaxHighlighter):
                 self.setFormat(cur_start, next_stop, QtGui.QTextCharFormat())
             cur_start = next_stop + 1
             cur_stop += len(word) + 1
-            
+
         return None
 
     def _is_keyword(self, word: str) -> bool:

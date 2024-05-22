@@ -1,6 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator
 from .state import CompletionState
 from ..types import resolve_cmd_desc, WordInfo
 
@@ -11,6 +11,8 @@ def _iter_upto(it: Iterable[str], n: int = 64, include_hidden: bool = False) -> 
         return [a for _, a in zip(range(n), it) if not a.startswith(".")]
 
 def complete_path(last_word: str, current_command: str) -> CompletionState | None:
+    if last_word == "":
+        return None
     if last_word.endswith(("/.", "\\.")):
         # If path string ends with ".", pathlib.Path will ignore it.
         # Here, we replace it with "$" to avoid this behavior.
@@ -23,10 +25,12 @@ def complete_path(last_word: str, current_command: str) -> CompletionState | Non
                 sep = ""
             else:
                 sep = "\\" if "\\" in last_word else "/"
+            completions = [sep + _p for _p in _iter_upto(p.name for p in _maybe_path.glob("*"))]
             return CompletionState(
                 "",
-                [sep + _p for _p in _iter_upto(p.name for p in _maybe_path.glob("*"))], 
-                current_command,
+                completions=completions,
+                command=current_command,
+                info=["<i>path</i>"] * len(completions),
                 type="path",
             )
     elif _maybe_path.parent.exists() and _maybe_path != Path("/").absolute():
@@ -34,13 +38,15 @@ def complete_path(last_word: str, current_command: str) -> CompletionState | Non
         pref = _maybe_path.as_posix().rsplit("/", 1)[1]
         if pref == "$":
             pref = "."
+        completions = _iter_upto(
+            (p.name for p in _iter if p.name.startswith(pref)),
+            include_hidden=pref.startswith(".") or pref == "$",
+        )
         return CompletionState(
             pref,
-            _iter_upto(
-                (p.name for p in _iter if p.name.startswith(pref)),
-                include_hidden=pref.startswith(".") or pref == "$",
-            ),
-            current_command,
+            completions=completions,
+            command=current_command,
+            info=["<i>path</i>"] * len(completions),
             type="path",
         )
     return None
@@ -87,7 +93,22 @@ def complete_keyword_name_or_value(
                 type="keyword-value",
                 keyword_type=cmd_desc._keyword[last_pref],
             )
-    
+    else:
+        if (
+            is_spec(next(iter(cmd_desc._required.values()), None))
+            or is_spec(next(iter(cmd_desc._optional.values()), None))
+        ):
+            map_table = str.maketrans({c: " " for c in "&|~"})
+            last_word = last_word.translate(map_table).split(" ")[-1]
+            selectors = [s for s in iter_selectors() if s.startswith(last_word)]
+            return CompletionState(
+                last_word,
+                completions=selectors,
+                command=current_command,
+                info=["<i>selector</i>"] * len(selectors),
+                type="selector",
+            )
+
     if keyword_just_typed and not is_noarg(cmd_desc._keyword[last_pref]):
         return None
     for _k in cmd_desc._keyword.keys():
@@ -114,6 +135,17 @@ def is_boolean(annotation) -> bool:
 
 def is_noarg(annotation) -> bool:
     return type(annotation).__name__ == "NoArg"
+
+def is_spec(annotation) -> bool:
+    return getattr(annotation, "name", "") == "an objects specifier"
+
+def iter_selectors() -> Iterator[str]:
+    # Iterate over all selectors available in ChimeraX (except for the atoms and ion
+    # groups to avoid too many completions).
+    
+    from chimerax.core.commands import list_selectors
+    
+    return (a for a in list_selectors() if a[0] == a[0].lower())
 
 def to_list_of_str(it: Iterable[Any], startswith: str = "") -> list[str]:
     out: list[str] = []
