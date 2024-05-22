@@ -9,6 +9,7 @@ class Preference:
     hide_title_bar: bool = False
     show_label: bool = False
     enter_completion: bool = True
+    auto_focus: bool = True
 
     def as_repr(self) -> str:
         return "\n".join(f"{k} = {v!r}" for k, v in asdict(self).items())

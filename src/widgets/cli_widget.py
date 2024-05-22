@@ -278,128 +278,166 @@ class QCommandLineEdit(QtW.QTextEdit):
         self._update_completion_state(False)
         self._close_popups()
         return None
+    
+    def forwarded_keystroke(self, event: QtGui.QKeyEvent):
+        """Forward the key event from the main window."""
+        if self._session.ui.key_intercepted(event.key()):
+            return None
+        if not self.isVisible():
+            return None
+        if (
+            event.key() not in (Qt.Key.Key_Control, Qt.Key.Key_Shift, Qt.Key.Key_Meta, Qt.Key.Key_Alt)
+            and not event.matches(QtGui.QKeySequence.StandardKey.Undo)
+            and not event.matches(QtGui.QKeySequence.StandardKey.Redo)
+        ):
+            self.setFocus()
+        self.event(event)
+        return None
+    
+    def _keypress_event(self, event: QtGui.QKeyEvent):
+        self._dont_need_inline_suggestion = False
+        done = False
+        if event.key() == Qt.Key.Key_Tab:
+            done = self._event_tab(event)
+        elif event.key() == Qt.Key.Key_Down:
+            done = self._event_down(event)
+        elif event.key() == Qt.Key.Key_PageDown:
+            done = self._event_page_down(event)
+        elif event.key() == Qt.Key.Key_Up:
+            done = self._event_up(event)
+        elif event.key() == Qt.Key.Key_PageUp:
+            done = self._event_page_up(event)
+        elif event.key() == Qt.Key.Key_Right:
+            done = self._event_right(event)
+        elif event.key() == Qt.Key.Key_End:
+            done = self._event_end(event)
+        elif event.key() == Qt.Key.Key_Left:
+            self._close_tooltip_and_list()
+        elif event.key() == Qt.Key.Key_Home:
+            self._close_tooltip_and_list()
+        elif event.key() == Qt.Key.Key_Return:
+            done = self._event_return(event)
+        elif event.key() == Qt.Key.Key_Escape:
+            done = self._event_escape(event)
+        elif event.key() in (Qt.Key.Key_Backspace, Qt.Key.Key_Delete):
+            self._dont_need_inline_suggestion = True
+        elif event.key() == Qt.Key.Key_X and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self._dont_need_inline_suggestion = True
+        elif event.key() == Qt.Key.Key_V and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self._current_completion_state = CompletionState.empty()
+        return done
 
+    def _event_tab(self, event: QtGui.QKeyEvent):
+        if self._list_widget.isVisible():
+            self._complete_with_current_item()
+        elif not self._update_completion_state(True):
+            pass
+        else:
+            self._try_show_list_widget()
+        return True
+    
+    def _event_down(self, event: QtGui.QKeyEvent):
+        self._dont_need_inline_suggestion = True
+        if self._list_widget.isVisible():
+            if event.modifiers() == Qt.KeyboardModifier.NoModifier:
+                self._list_widget.goto_next()
+            elif event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+                self._list_widget.goto_last()
+            else:
+                return super().event(event)
+            return True
+        cursor = self.textCursor()
+        if cursor.blockNumber() == self.document().blockCount() - 1:
+            mgr = HistoryManager.instance()
+            self.setText(mgr.look_for_next(self.text()))
+            self.setTextCursor(cursor)
+            if not mgr._is_searching:
+                self._current_completion_state = CompletionState.empty()
+            return True
+        self._close_tooltip_and_list()
+        return False
+    
+    def _event_page_down(self, event: QtGui.QKeyEvent):
+        self._inline_suggestion_widget.hide()
+        self._dont_need_inline_suggestion = True
+        if self._list_widget.isVisible():
+            self._list_widget.goto_next_page()
+            return True
+        self._close_tooltip_and_list()
+    
+    def _event_up(self, event: QtGui.QKeyEvent):
+        self._inline_suggestion_widget.hide()
+        self._dont_need_inline_suggestion = True
+        if self._list_widget.isVisible():
+            if event.modifiers() == Qt.KeyboardModifier.NoModifier:
+                self._list_widget.goto_previous()
+            elif event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+                self._list_widget.goto_first()
+            else:
+                return super().event(event)
+            return True
+        cursor = self.textCursor()
+        if cursor.blockNumber() == 0:
+            self.setText(HistoryManager.instance().look_for_prev(self.text()))
+            self.setTextCursor(cursor)
+            return True
+        self._close_tooltip_and_list()
+        return False
+
+    def _event_page_up(self, event: QtGui.QKeyEvent):
+        self._inline_suggestion_widget.hide()
+        self._dont_need_inline_suggestion = True
+        if self._list_widget.isVisible():
+            self._list_widget.goto_previous_page()
+            return True
+        self._close_tooltip_and_list()
+        return False
+
+    def _event_right(self, event: QtGui.QKeyEvent):
+        cursor = self.textCursor()
+        if cursor.atBlockEnd() and self._inline_suggestion_widget.isVisible():
+            self._apply_inline_suggestion()
+            return True
+        self._close_tooltip_and_list()
+        return False
+    
+    def _event_end(self, event: QtGui.QKeyEvent):
+        if self._inline_suggestion_widget.isVisible():
+            self._apply_inline_suggestion()
+            return True
+        self._close_tooltip_and_list()
+        return False
+
+    def _event_return(self, event: QtGui.QKeyEvent):
+        if event.modifiers() == Qt.KeyboardModifier.NoModifier:
+            if self._list_widget.isVisible() and self._preference.enter_completion:
+                self._complete_with_current_item()
+            else:
+                self.run_command()
+                HistoryManager.instance().init_iterator()
+            return True
+        elif event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+            self.insertPlainText("\n")
+            self._close_popups()
+            self.set_height_for_block_counts()
+            self._current_completion_state = CompletionState.empty()
+            return True
+        return False
+    
+    def _event_escape(self, event: QtGui.QKeyEvent):
+        if self._list_widget.isVisible() or self._tooltip_widget.isVisible():
+            self._close_popups()
+        else:
+            self.setText("")
+            HistoryManager.instance().init_iterator()
+        return True
+        
     def event(self, event: QtCore.QEvent):
         if event.type() == QtCore.QEvent.Type.KeyPress:
             assert isinstance(event, QtGui.QKeyEvent)
-            self._dont_need_inline_suggestion = False
-            if event.key() == Qt.Key.Key_Tab:
-                if self._list_widget.isVisible():
-                    self._complete_with_current_item()
-                elif not self._update_completion_state(True):
-                    pass
-                else:
-                    self._try_show_list_widget()
+            done = self._keypress_event(event)
+            if done:
                 return True
-            # up/down arrow keys
-            elif event.key() == Qt.Key.Key_Down:
-                self._inline_suggestion_widget.hide()
-                self._dont_need_inline_suggestion = True
-                if self._list_widget.isVisible():
-                    if event.modifiers() == Qt.KeyboardModifier.NoModifier:
-                        self._list_widget.goto_next()
-                    elif event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-                        self._list_widget.goto_last()
-                    else:
-                        return super().event(event)
-                    return True
-                cursor = self.textCursor()
-                if cursor.blockNumber() == self.document().blockCount() - 1:
-                    mgr = HistoryManager.instance()
-                    self.setText(mgr.look_for_next(self.text()))
-                    self.setTextCursor(cursor)
-                    if not mgr._is_searching:
-                        self._current_completion_state = CompletionState.empty()
-                    return True
-                self._tooltip_widget.hide()
-                self._list_widget.hide()
-            elif event.key() == Qt.Key.Key_PageDown:
-                self._inline_suggestion_widget.hide()
-                self._dont_need_inline_suggestion = True
-                if self._list_widget.isVisible():
-                    self._list_widget.goto_next_page()
-                    return True
-                self._tooltip_widget.hide()
-                self._list_widget.hide()
-            elif event.key() == Qt.Key.Key_Up:
-                self._inline_suggestion_widget.hide()
-                self._dont_need_inline_suggestion = True
-                if self._list_widget.isVisible():
-                    if event.modifiers() == Qt.KeyboardModifier.NoModifier:
-                        self._list_widget.goto_previous()
-                    elif event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-                        self._list_widget.goto_first()
-                    else:
-                        return super().event(event)
-                    return True
-                cursor = self.textCursor()
-                if cursor.blockNumber() == 0:
-                    self.setText(HistoryManager.instance().look_for_prev(self.text()))
-                    self.setTextCursor(cursor)
-                    return True
-                self._tooltip_widget.hide()
-                self._list_widget.hide()
-            elif event.key() == Qt.Key.Key_PageUp:
-                self._inline_suggestion_widget.hide()
-                self._dont_need_inline_suggestion = True
-                if self._list_widget.isVisible():
-                    self._list_widget.goto_previous_page()
-                    return True
-                self._tooltip_widget.hide()
-                self._list_widget.hide()
-            
-            # left/right arrow keys
-            elif event.key() == Qt.Key.Key_Right:
-                cursor = self.textCursor()
-                if cursor.atBlockEnd() and self._inline_suggestion_widget.isVisible():
-                    self._apply_inline_suggestion()
-                    return True
-                self._tooltip_widget.hide()
-                self._list_widget.hide()
-            elif event.key() == Qt.Key.Key_End:
-                if self._inline_suggestion_widget.isVisible():
-                    self._apply_inline_suggestion()
-                    return True
-                self._tooltip_widget.hide()
-                self._list_widget.hide()
-            elif event.key() == Qt.Key.Key_Left:
-                self._tooltip_widget.hide()
-                self._list_widget.hide()
-            elif event.key() == Qt.Key.Key_Home:
-                self._tooltip_widget.hide()
-                self._list_widget.hide()
-
-            elif event.key() == Qt.Key.Key_Return:
-                if event.modifiers() == Qt.KeyboardModifier.NoModifier:
-                    if self._list_widget.isVisible() and self._preference.enter_completion:
-                        self._complete_with_current_item()
-                    else:
-                        self.run_command()
-                        HistoryManager.instance().init_iterator()
-                    return True
-                elif event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
-                    self.insertPlainText("\n")
-                    self._close_popups()
-                    self.set_height_for_block_counts()
-                    self._current_completion_state = CompletionState.empty()
-                    return True
-            elif event.key() == Qt.Key.Key_Escape:
-                if self._list_widget.isVisible() or self._tooltip_widget.isVisible():
-                    self._close_popups()
-                    return True
-                else:
-                    self.setText("")
-                    HistoryManager.instance().init_iterator()
-                return True
-            
-            elif event.key() == Qt.Key.Key_Backspace:
-                self._dont_need_inline_suggestion = True
-            elif event.key() == Qt.Key.Key_Delete:
-                self._dont_need_inline_suggestion = True
-            elif event.key() == Qt.Key.Key_X and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-                self._dont_need_inline_suggestion = True
-            elif event.key() == Qt.Key.Key_V and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-                self._current_completion_state = CompletionState.empty()
 
         elif event.type() == QtCore.QEvent.Type.Move:
             self._close_popups()
@@ -425,3 +463,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         if self._inline_suggestion_widget.isVisible():
             self._inline_suggestion_widget.hide()
         return None
+
+    def _close_tooltip_and_list(self):
+        self._tooltip_widget.hide()
+        self._list_widget.hide()

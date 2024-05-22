@@ -20,6 +20,8 @@ class ClixTool(ToolInstance):
         self._history_button = QShowHistoryButton(self._clix_widget)
         self._preference_button = QShowDialogButton()
         self._build_ui()
+        if self._preference.auto_focus:
+            session.ui.register_for_keystrokes(self._clix_widget)
 
     def _build_ui(self):
         layout = QtW.QHBoxLayout()
@@ -36,3 +38,8 @@ class ClixTool(ToolInstance):
         self.tool_window.ui_area.setLayout(layout)
         self.tool_window.manage(self._preference.area)
         self._clix_widget.setFocus()
+
+    def delete(self):
+        if self._preference.auto_focus:
+            self._clix_widget._session.ui.deregister_for_keystrokes(self._clix_widget)
+        return super().delete()
