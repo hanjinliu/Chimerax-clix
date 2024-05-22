@@ -78,7 +78,7 @@ class QCommandLineEdit(QtW.QTextEdit):
             return
         if self._current_completion_state.type in ("residue", "model,residue"):
             # set residue name
-            tooltip = TOOLTIP_FOR_AMINO_ACID.get(text[1:], "")
+            tooltip = TOOLTIP_FOR_AMINO_ACID.get(text.split(":")[-1], "")
             if tooltip:
                 self._tooltip_widget.setText(tooltip)
                 # adjust the height of the tooltip
