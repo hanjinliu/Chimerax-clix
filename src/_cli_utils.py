@@ -4,7 +4,7 @@ from .types import WordInfo
 
 def get_registry() -> WordInfo:
     """Get the ChimeraX command registry"""
-    from chimerax.core.commands.cli import _command_info
+    from chimerax.core.commands.cli import _command_info  # type: ignore
     
     return _command_info.commands
 

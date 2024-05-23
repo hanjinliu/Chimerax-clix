@@ -8,7 +8,7 @@ from ..completion import (
     CompletionState, complete_path, complete_keyword_name_or_value, complete_model, 
     complete_chain, complete_residue, complete_atom
 )
-from chimerax.core.commands import run
+from chimerax.core.commands import run  # type: ignore
 from .consts import _FONT, ColorPreset, TOOLTIP_FOR_AMINO_ACID
 from ._utils import colored
 from .popups import QCompletionPopup, QTooltipPopup
@@ -141,12 +141,16 @@ class QCommandLineEdit(QtW.QTextEdit):
                 # if `matched_commands` is
                 #   toolshed list
                 #   toolshed install
-                # then `base_commands` is
+                # then `all_commands` is
                 #   toolshed
-                base_commands: dict[str, None] = {}  # ordered set
+                #   toolshed list
+                #   toolshed install
+                all_commands: dict[str, None] = {}  # ordered set
                 for cmd in matched_commands:
-                    base_commands[cmd.split(" ")[0]] = None
-                matched_commands = list(base_commands.keys()) + matched_commands
+                    all_commands[cmd.split(" ")[0]] = None
+                for cmd in matched_commands:
+                    all_commands[cmd] = None
+                matched_commands = list(all_commands.keys())
             return CompletionState(text, matched_commands, current_command, type="command")
     
         # attribute completion
