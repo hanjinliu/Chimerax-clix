@@ -66,6 +66,8 @@ def complete_keyword_name_or_value(
         last_annot = cmd_desc._keyword[last_pref]
         if is_enumof(last_annot):
             values = to_list_of_str(last_annot.values, startswith=last_word)
+            if len(values) == 1 and last_word == values[0]:
+                values = []
             return CompletionState(
                 text=last_word,
                 completions=values,
@@ -76,6 +78,8 @@ def complete_keyword_name_or_value(
             )
         elif is_dynamic_enum(last_annot):
             values = to_list_of_str(last_annot.value_func(), startswith=last_word)
+            if len(values) == 1 and last_word == values[0]:
+                values = []
             return CompletionState(
                 text=last_word,
                 completions=values,
@@ -85,11 +89,14 @@ def complete_keyword_name_or_value(
                 keyword_type=cmd_desc._keyword[last_pref],
             )
         elif is_boolean(last_annot):
+            values = ["true", "false"]
+            if len(values) == 1 and last_word == values[0]:
+                values = []
             return CompletionState(
                 text=last_word,
-                completions=["true", "false"],
+                completions=values,
                 command=current_command,
-                info=["<i>boolean</i>"] * 2,
+                info=["<i>boolean</i>"] * len(values),
                 type="keyword-value",
                 keyword_type=cmd_desc._keyword[last_pref],
             )

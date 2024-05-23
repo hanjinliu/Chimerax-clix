@@ -338,7 +338,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         elif event.key() == Qt.Key.Key_X and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             self._dont_need_inline_suggestion = True
         elif event.key() == Qt.Key.Key_V and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            self._current_completion_state = CompletionState.empty()
+            done = self._event_paste(event)
         return done
 
     def _event_tab(self, event: QtGui.QKeyEvent):
@@ -348,6 +348,14 @@ class QCommandLineEdit(QtW.QTextEdit):
             pass
         else:
             self._try_show_list_widget()
+        return True
+    
+    def _event_paste(self, event: QtGui.QKeyEvent):
+        self._current_completion_state = CompletionState.empty()
+        # if html is pasted, converted it to a plain text
+        clip = QtW.QApplication.clipboard()
+        text = clip.text()
+        self.insertPlainText(text)
         return True
     
     def _event_down(self, event: QtGui.QKeyEvent):
