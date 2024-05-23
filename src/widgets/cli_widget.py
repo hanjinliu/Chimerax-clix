@@ -16,7 +16,11 @@ from .highlighter import QCommandHighlighter
 from .._preference import Preference
 
 class QSuggestionLabel(QtW.QLabel):
-    pass
+    clicked = QtCore.Signal()
+
+    def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
+        self.clicked.emit()
+        return super().mousePressEvent(event)
 
 class QCommandLineEdit(QtW.QTextEdit):
     def __init__(self, commands: dict[str, WordInfo], session, preference: Preference):
@@ -113,13 +117,13 @@ class QCommandLineEdit(QtW.QTextEdit):
         suggestion_widget.setParent(self, Qt.WindowType.ToolTip)
         suggestion_widget.setStyleSheet("QSuggestionLabel { background-color: #ffffff; }")
         suggestion_widget.hide()
+        @suggestion_widget.clicked.connect
+        def _inline_clicked():
+            self.setFocus()
+            self._close_tooltip_and_list()
         return suggestion_widget
-
-    def _get_completion_list(self, text: str) -> CompletionState:
-        if text == "" or text.startswith("#"):
-            return CompletionState(text, [], type="empty-text")
-
-        # command completion
+    
+    def _current_and_matched_commands(self, text: str) -> tuple[str, list[str]]:
         matched_commands: list[str] = []
         current_command: str | None = None
         text_lstrip = text.lstrip()
@@ -133,8 +137,16 @@ class QCommandLineEdit(QtW.QTextEdit):
                 matched_commands.append(command_name)
             elif text_strip == command_name or text_strip.startswith(command_name.rstrip() + " "):
                 current_command = command_name
+        return current_command, matched_commands
+
+    def _get_completion_list(self, text: str) -> CompletionState:
+        if text == "" or text.startswith("#"):
+            return CompletionState(text, [], type="empty-text")
+
+        # command completion
+        current_command, matched_commands = self._current_and_matched_commands(text)
         if len(matched_commands) > 0:
-            if len(matched_commands) == 1 and matched_commands[0] == text_strip:
+            if len(matched_commands) == 1 and matched_commands[0] == text.strip():
                 # not need to show the completion list
                 pass
             elif " " not in text:
@@ -461,8 +473,16 @@ class QCommandLineEdit(QtW.QTextEdit):
             if done:
                 return True
 
-        elif event.type() == QtCore.QEvent.Type.Move:
+        elif event.type() in _HIDE_POPUPS:
             self._close_popups()
+        elif event.type() == QtCore.QEvent.Type.WindowDeactivate:
+            if QtW.QApplication.activeWindow() not in (
+                self._session.ui.main_window,
+                self._tooltip_widget,
+            ):
+                # in this case, other application is activated
+                self._close_popups()
+
         return super().event(event)
 
     def set_height_for_block_counts(self):
@@ -474,7 +494,8 @@ class QCommandLineEdit(QtW.QTextEdit):
         self._complete_with(comp)
 
     def focusOutEvent(self, a0: QtGui.QFocusEvent) -> None:
-        self._close_popups()
+        if QtW.QApplication.focusWidget():
+            self._close_popups()
         return super().focusOutEvent(a0)
 
     def _close_popups(self):
@@ -493,3 +514,11 @@ class QCommandLineEdit(QtW.QTextEdit):
 def _is_too_bottom(pos: int):
     screen_bottom = QtW.QApplication.primaryScreen().geometry().bottom()
     return pos > screen_bottom
+
+_HIDE_POPUPS = {
+    QtCore.QEvent.Type.Move,
+    QtCore.QEvent.Type.Hide,
+    QtCore.QEvent.Type.Resize,
+    QtCore.QEvent.Type.WindowStateChange,
+    QtCore.QEvent.Type.ZOrderChange,
+}
