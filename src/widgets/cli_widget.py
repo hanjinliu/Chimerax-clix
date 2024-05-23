@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
-from ..types import WordInfo
+from ..types import WordInfo, resolve_cmd_desc
 from .._history import HistoryManager
 from ..completion import (
     CompletionState, complete_path, complete_keyword_name_or_value, complete_model, 
@@ -17,6 +17,10 @@ from .._preference import Preference
 
 class QSuggestionLabel(QtW.QLabel):
     clicked = QtCore.Signal()
+    
+    def __init__(self):
+        super().__init__()
+        self.setCursor(Qt.CursorShape.IBeamCursor)
 
     def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
         self.clicked.emit()
@@ -57,15 +61,31 @@ class QCommandLineEdit(QtW.QTextEdit):
     def run_command(self):
         code = self.text()
         try:
-            for line in code.split("\n"):
-                if line.strip() == "":
-                    continue
-                run(self._session, line)
+            if code.endswith("?"):
+                self._open_help_viewer(code[:-1].strip())
+            else:
+                for line in code.split("\n"):
+                    if line.strip() == "":
+                        continue
+                    run(self._session, line)
         finally:
             self.setText("")
             self._current_completion_state = CompletionState.empty()
         if code:
             HistoryManager.instance().add_code(code)
+    
+    def _open_help_viewer(self, code: str):
+        from chimerax.help_viewer import show_url  # type: ignore
+            
+        if command := self._commands.get(code, None):
+            if out := resolve_cmd_desc(command):
+                if out.url:
+                    show_url(self._session, out.url)
+            else:
+                raise ValueError(f"Command {code!r} does not have CmdDesc.")
+        else:
+            raise ValueError(f"Command {code!r} not found.")
+        return None
 
     def _adjust_tooltip_for_list(self, idx: int):
         item_rect = self._list_widget.visualItemRect(self._list_widget.item(idx))
