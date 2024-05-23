@@ -17,9 +17,10 @@ class QCompletionPopup(QtW.QListWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.itemClicked.connect(self._on_item_clicked)
+        self.itemPressed.connect(self._on_item_clicked)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def parentWidget(self) -> QCommandLineEdit:
         return super().parentWidget()
