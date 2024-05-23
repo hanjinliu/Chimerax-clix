@@ -111,7 +111,17 @@ def complete_keyword_name_or_value(
 
     if keyword_just_typed and not is_noarg(cmd_desc._keyword[last_pref]):
         return None
-    for _k in cmd_desc._keyword.keys():
+    
+    # Show keyword list. To make the keywords ordered, we first show the optional
+    # arguments.
+    keywords = cmd_desc._keyword.copy()
+    for _k in cmd_desc._optional.keys():
+        if _k not in keywords:
+            continue
+        if _k.startswith(last_word):
+            comp_list.append(_k)
+            keywords.pop(_k)
+    for _k in keywords.keys():
         if _k.startswith(last_word):
             comp_list.append(_k)
     if len(comp_list) > 0:
@@ -143,7 +153,7 @@ def iter_selectors() -> Iterator[str]:
     # Iterate over all selectors available in ChimeraX (except for the atoms and ion
     # groups to avoid too many completions).
     
-    from chimerax.core.commands import list_selectors
+    from chimerax.core.commands import list_selectors  # type: ignore
     
     return (a for a in list_selectors() if a[0] == a[0].lower())
 
