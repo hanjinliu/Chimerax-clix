@@ -10,6 +10,7 @@ class CmdDesc:
     _optional: dict[str, Any]
     _keyword: dict[str, Any]
     synopsis: str | None
+    url: str | None
 
 class Annotation:
     name: str

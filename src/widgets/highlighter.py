@@ -26,6 +26,8 @@ class QCommandHighlighter(QtGui.QSyntaxHighlighter):
             fmt.setForeground(QtGui.QColor(ColorPreset.COMMENT))
             self.setFormat(0, len(text), fmt)
             return None
+        if text.endswith("?"):
+            return self.highlightBlock(text[:-1])
         cur_command = []
         cur_start = 0
         cur_stop = 0
