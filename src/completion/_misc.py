@@ -109,7 +109,6 @@ def complete_keyword_name_or_value(
             if len(values) == 1 and last_word == values[0]:
                 values = []
             valid_values = [v for v in values if v.startswith(last_word)]
-            print(last_word, valid_values)
             return CompletionState(
                 text=last_word,
                 completions=valid_values,
