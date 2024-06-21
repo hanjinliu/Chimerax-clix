@@ -100,6 +100,24 @@ def complete_keyword_name_or_value(
                 type="keyword-value",
                 keyword_type=cmd_desc._keyword[last_pref],
             )
+        elif is_listof_enumof(last_annot):
+            last_word = last_word.split(",")[-1]
+            values = to_list_of_str(
+                last_annot.annotation.values,
+                startswith=last_word
+            )
+            if len(values) == 1 and last_word == values[0]:
+                values = []
+            valid_values = [v for v in values if v.startswith(last_word)]
+            print(last_word, valid_values)
+            return CompletionState(
+                text=last_word,
+                completions=valid_values,
+                command=current_command,
+                info=["<i>enum</i>"] * len(values),
+                type="keyword-value",
+                keyword_type=cmd_desc._keyword[last_pref],
+            )
     else:
         if (
             is_spec(next(iter(cmd_desc._required.values()), None))
@@ -146,6 +164,9 @@ def is_enumof(annotation) -> bool:
 
 def is_dynamic_enum(annotation) -> bool:
     return type(annotation).__name__ == "DynamicEnum"
+
+def is_listof_enumof(annotation) -> bool:
+    return type(annotation).__name__ == "ListOf" and is_enumof(annotation.annotation)
 
 def is_boolean(annotation) -> bool:
     return getattr(annotation, "name", "") == "true or false"
