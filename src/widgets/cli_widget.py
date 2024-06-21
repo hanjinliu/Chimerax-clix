@@ -265,11 +265,11 @@ class QCommandLineEdit(QtW.QTextEdit):
 
     def _apply_inline_suggestion(self):
         cursor = self.textCursor()
-        if not cursor.atBlockEnd():
-            cursor.movePosition(QtGui.QTextCursor.MoveOperation.EndOfBlock)
+        if not cursor.atEnd():
+            cursor.movePosition(QtGui.QTextCursor.MoveOperation.EndOfLine)
         if sug := HistoryManager.instance().pop_suggestion():
             self.insertPlainText(sug)
-            cursor.movePosition(QtGui.QTextCursor.MoveOperation.End)
+            cursor.movePosition(QtGui.QTextCursor.MoveOperation.EndOfLine)
             self.setTextCursor(cursor)
         self._inline_suggestion_widget.hide()
         self._close_popups()
@@ -278,9 +278,23 @@ class QCommandLineEdit(QtW.QTextEdit):
     def _try_show_list_widget(self):
         self._update_completion_state(allow_auto=False)
         items = self._current_completion_state.completions
+        
+        # if nothing to show, do not show the list
         if len(items) == 0:
             self._list_widget.hide()
             return
+        
+        # if the next character exists and is not a space, do not show the list
+        _cursor = self.textCursor()
+        if not _cursor.atEnd():
+            _cursor.movePosition(
+                QtGui.QTextCursor.MoveOperation.Right,
+                QtGui.QTextCursor.MoveMode.KeepAnchor
+            )
+            if not _cursor.selectedText().isspace():
+                self._list_widget.hide()
+                return
+        
         self._list_widget.add_items_with_highlight(self._current_completion_state)
         self._list_widget.resizeForContents()
         if not self._list_widget.isVisible():
