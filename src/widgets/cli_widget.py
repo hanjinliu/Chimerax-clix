@@ -59,21 +59,28 @@ class QCommandLineEdit(QtW.QTextEdit):
         return text.replace("\u2029", "\n")
 
     def run_command(self):
-        code = self.text()
+        code = self.text().rstrip()
+        if code == "":
+            return None
+        if code.endswith("?"):
+            self._open_help_viewer(code[:-1].strip())
+            return None
         try:
-            if code.endswith("?"):
-                self._open_help_viewer(code[:-1].strip())
-            else:
-                for line in code.split("\n"):
-                    if line.strip() == "":
-                        continue
-                    run(self._session, line)
+            for line in code.split("\n"):
+                if line.strip() == "":
+                    continue
+                run(self._session, line)
+        except Exception:
+            HistoryManager.instance().init_iterator(last=code)
+            raise
+        else:
+            if code:
+                HistoryManager.instance().add_code(code)
+            HistoryManager.instance().init_iterator()
         finally:
             self.setText("")
             self._current_completion_state = CompletionState.empty()
-        if code:
-            HistoryManager.instance().add_code(code)
-    
+
     def _open_help_viewer(self, code: str):
         from chimerax.help_viewer import show_url  # type: ignore
             
@@ -482,7 +489,6 @@ class QCommandLineEdit(QtW.QTextEdit):
                 self._complete_with_current_item()
             else:
                 self.run_command()
-                HistoryManager.instance().init_iterator()
             return True
         elif event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             self.insertPlainText("\n")
