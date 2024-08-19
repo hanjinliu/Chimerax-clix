@@ -4,9 +4,10 @@ from typing import TYPE_CHECKING
 from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
 from html import escape
+
 from ..types import WordInfo, resolve_cmd_desc
-from .consts import ColorPreset
-from ._utils import colored
+from .._preference import load_preference
+from .._utils import colored
 
 if TYPE_CHECKING:
     from .cli_widget import QCommandLineEdit
@@ -40,6 +41,7 @@ class QCompletionPopup(QtW.QListWidget):
     
     def add_items_with_highlight(self, cmp: CompletionState):
         prefix = cmp.text
+        color_theme = load_preference(force=False).color_theme
         
         # adjust item count
         for _ in range(len(cmp.completions) - self.count()):
@@ -56,7 +58,7 @@ class QCompletionPopup(QtW.QListWidget):
             else:
                 continue
             if prefix:
-                text = f"<b>{colored(prefix, ColorPreset.MATCH)}</b>{item}"
+                text = f"<b>{colored(prefix, color_theme.matched)}</b>{item}"
             else:
                 text = item
             if cmp.info is not None:
@@ -104,22 +106,23 @@ class QTooltipPopup(QtW.QTextEdit):
     
     def setWordInfo(self, word_info: WordInfo, command_name: str):
         cmd_desc = resolve_cmd_desc(word_info)
+        color_theme = load_preference().color_theme
         if cmd_desc is None:
             self.setText("")
             self.hide()
             return None
-        strings = [f"<b>{colored(command_name, ColorPreset.COMMAND)}</b>"]
+        strings = [f"<b>{colored(command_name, color_theme.command)}</b>"]
         if cmd_desc.synopsis is not None:
             strings.append(cmd_desc.synopsis.replace("\n", "<br>"))
         strings.append(f"<br><u>{colored('Arguments', 'gray')}</u>")
         for name, typ in cmd_desc._required.items():
             strings.append(
-                f"<b>{name}</b>: {colored(_as_name(typ), ColorPreset.TYPE)}"
+                f"<b>{name}</b>: {colored(_as_name(typ), color_theme.type)}"
             )
         # here, some arguments are both optional and keyword
         keywords = cmd_desc._keyword.copy()
         for name, typ in cmd_desc._optional.items():
-            annot = colored(_as_name(typ), ColorPreset.TYPE)
+            annot = colored(_as_name(typ), color_theme.type)
             if name in keywords:
                 strings.append(f"<b>{name}</b>: {annot} <i>(optional, keyword)</i>")
                 keywords.pop(name)
@@ -127,7 +130,7 @@ class QTooltipPopup(QtW.QTextEdit):
                 strings.append(f"<b>{name}</b>: {annot} <i>(optional)</i>")
         for name, typ in keywords.items():
             strings.append(
-                f"<b>{name}</b>: {colored(_as_name(typ), ColorPreset.TYPE)} "
+                f"<b>{name}</b>: {colored(_as_name(typ), color_theme.type)} "
                 "<i>(keyword)</i>"
             )
         self.setText("<br>".join(strings))

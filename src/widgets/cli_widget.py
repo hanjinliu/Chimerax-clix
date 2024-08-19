@@ -9,10 +9,10 @@ from ..completion import (
     complete_chain, complete_residue, complete_atom
 )
 from chimerax.core.commands import run  # type: ignore
-from .consts import _FONT, ColorPreset, TOOLTIP_FOR_AMINO_ACID
-from ._utils import colored
+from .consts import _FONT, TOOLTIP_FOR_AMINO_ACID
 from .popups import QCompletionPopup, QTooltipPopup
 from .highlighter import QCommandHighlighter
+from .._utils import colored
 from .._preference import Preference
 
 class QSuggestionLabel(QtW.QLabel):
@@ -259,7 +259,9 @@ class QCommandLineEdit(QtW.QTextEdit):
             # the first spaces are not visible when using HTML
             _stripped = suggested.lstrip()
             suggested = "&nbsp;" * (len(suggested) - len(_stripped)) + _stripped
-        self._inline_suggestion_widget.setText(colored(suggested, ColorPreset.SUGGESTION))
+        self._inline_suggestion_widget.setText(
+            colored(suggested, self._preference.color_theme.suggestion)
+        )
         cursor_rect = self.cursorRect()
         label_height = QtGui.QFontMetrics(self.font()).height()
         cursor_height = cursor_rect.height()
