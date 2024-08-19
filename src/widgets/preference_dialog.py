@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from .._preference import Preference, load_preference, save_preference
-
-from qtpy import QtWidgets as QtW
+from .._preference import Preference, ColorTheme, load_preference, save_preference
+from ._color_widget import QLabeledColorSwatch
+from qtpy import QtWidgets as QtW, QtGui
 
 class QShowDialogButton(QtW.QPushButton):
     def __init__(self, parent: QtW.QWidget | None = None):
@@ -66,6 +66,10 @@ class QPreferenceDialog(QtW.QDialog):
         )
         self._auto_focus.setChecked(preference.auto_focus)
         layout.addRow(self._auto_focus)
+        
+        layout.addRow(QtW.QLabel(" --- Color ---"))
+        self._color_theme = QColorThemePage()
+        layout.addRow(self._color_theme)
 
         buttons = QtW.QDialogButtonBox()
         buttons.setStandardButtons(
@@ -83,5 +87,25 @@ class QPreferenceDialog(QtW.QDialog):
             show_label=self._show_label.isChecked(),
             enter_completion=self._enter_completion.isChecked(),
             auto_focus=self._auto_focus.isChecked(),
+            color_theme=self._color_theme.get_color_theme(),
         )
         self.accept()
+
+class QColorThemePage(QtW.QWidget):
+    def __init__(self):
+        super().__init__()
+        layout = QtW.QGridLayout(self)
+        self._widgets: dict[str, QLabeledColorSwatch] = {}
+        pref = load_preference()
+        
+        for i, (field_name, color) in enumerate(pref.color_theme.iteritems()):
+            col_widget = QLabeledColorSwatch()
+            col_widget.setLabel(field_name)
+            col_widget.setColor(QtGui.QColor(color))
+            layout.addWidget(col_widget, i // 2, i % 2)
+            self._widgets[field_name] = col_widget
+        
+    def get_color_theme(self) -> ColorTheme:
+        return ColorTheme(
+            **{k: v._swatch.getQColor().name() for k, v in self._widgets.items()}
+        )

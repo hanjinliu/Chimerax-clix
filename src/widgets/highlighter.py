@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from qtpy import QtGui
 from ..types import resolve_cmd_desc
-from .consts import ColorPreset
+from .._preference import load_preference
 
 if TYPE_CHECKING:
     from .cli_widget import QCommandLineEdit
@@ -20,10 +20,11 @@ class QCommandHighlighter(QtGui.QSyntaxHighlighter):
         self._parent = parent
     
     def highlightBlock(self, text: str):
+        _color_theme = load_preference(force=False).color_theme
         if text.startswith("#"):
             # comment
             fmt = QtGui.QTextCharFormat()
-            fmt.setForeground(QtGui.QColor(ColorPreset.COMMENT))
+            fmt.setForeground(QtGui.QColor(_color_theme.comment))
             self.setFormat(0, len(text), fmt)
             return None
         if text.endswith("?"):
@@ -37,20 +38,20 @@ class QCommandHighlighter(QtGui.QSyntaxHighlighter):
             next_stop = cur_stop + len(word)
             if " ".join(cur_command) in self._command_strings:
                 fmt = QtGui.QTextCharFormat()
-                fmt.setForeground(QtGui.QColor(ColorPreset.COMMAND))
+                fmt.setForeground(QtGui.QColor(_color_theme.command))
                 fmt.setFontWeight(QtGui.QFont.Weight.Bold)
                 self.setFormat(cur_start, next_stop, fmt)
             elif word.startswith(("#", "/", ":", "@")):
                 fmt = QtGui.QTextCharFormat()
-                fmt.setForeground(QtGui.QColor(ColorPreset.MODEL))
+                fmt.setForeground(QtGui.QColor(_color_theme.model))
                 self.setFormat(cur_start, next_stop, fmt)
             elif self._is_keyword(word):
                 fmt = QtGui.QTextCharFormat()
-                fmt.setForeground(QtGui.QColor(ColorPreset.KEYWORD))
+                fmt.setForeground(QtGui.QColor(_color_theme.keyword))
                 self.setFormat(cur_start, next_stop, fmt)
             elif self._is_real_number(word):
                 fmt = QtGui.QTextCharFormat()
-                fmt.setForeground(QtGui.QColor(ColorPreset.NUMBER))
+                fmt.setForeground(QtGui.QColor(_color_theme.number))
                 self.setFormat(cur_start, next_stop, fmt)
             else:
                 self.setFormat(cur_start, next_stop, QtGui.QTextCharFormat())

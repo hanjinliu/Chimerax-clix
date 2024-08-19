@@ -9,16 +9,6 @@ elif sys.platform == "darwin":
 else:
     _FONT = "Monospace"
 
-class ColorPreset:
-    TYPE = "#28B328"
-    MATCH = "#3C6CED"
-    COMMAND = "#AF7500"
-    MODEL = "#CF2424"
-    KEYWORD = "#808080"
-    NUMBER = "#2CA32C"
-    SUGGESTION = "#B2B2B2"
-    COMMENT = "#A6A6B6"
-
 ALL_ATOMS = ["Ca", "Cb", "C", "N", "O", "OH"]
 ALL_AMINO_ACIDS = [
     "Ala", "Arg", "Asn", "Asp", "Cys", "Gln", "Glu", "Gly", "His", "Ile",
