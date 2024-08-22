@@ -54,8 +54,7 @@ def load_preference(force: bool = True) -> Preference:
         return _CACHED_PREFERENCE
     _LAST_LOADED = now
 
-    if not CLIX_PREFERENCE_FILE.exists():
-        out = Preference()
+    prepare_preference_file()
     with CLIX_PREFERENCE_FILE.open("r") as f:
         js = json.load(f)
         if not isinstance(js, dict):
@@ -71,8 +70,7 @@ def load_preference(force: bool = True) -> Preference:
     return out
 
 def save_preference(**kwargs):
-    if not CLIX_DATA_DIR.exists():
-        CLIX_DATA_DIR.mkdir(parents=True)
+    prepare_preference_file()
     pref = load_preference()
     for k, v in kwargs.items():
         if v is not None:
@@ -80,3 +78,12 @@ def save_preference(**kwargs):
     with CLIX_PREFERENCE_FILE.open("w") as f:
         json.dump(asdict(pref), f)
     return pref
+
+def prepare_preference_file():
+    """Create directory and file if not exists."""
+    if not CLIX_DATA_DIR.exists():
+        CLIX_DATA_DIR.mkdir(parents=True)
+    if not CLIX_PREFERENCE_FILE.exists():
+        with CLIX_PREFERENCE_FILE.open("w") as f:
+            json.dump(asdict(Preference()), f)
+    return None

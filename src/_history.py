@@ -38,6 +38,7 @@ class CommandHistory(MutableSequence[str]):
             CLIX_DATA_DIR.mkdir(parents=True)
         with CLIX_HISTORY_FILE.open("w") as f:
             json.dump(self._codes, f)
+        return None
     
     @classmethod
     def load(cls, max_size: int = 120) -> CommandHistory:
