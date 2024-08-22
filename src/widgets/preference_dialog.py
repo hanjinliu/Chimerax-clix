@@ -36,7 +36,7 @@ class QPreferenceDialog(QtW.QDialog):
 
         self._hide_title_bar = QtW.QCheckBox("Hide title bar")
         self._hide_title_bar.setToolTip(
-            "This will hide the title bar of the CliX widget, just like the built-in "
+            "This will hide the title bar of the CliX widget, just like the built-in \n"
             "command line."
         )
         self._hide_title_bar.setChecked(preference.hide_title_bar)
@@ -44,7 +44,7 @@ class QPreferenceDialog(QtW.QDialog):
 
         self._show_label = QtW.QCheckBox("Show \"CliX\" label on the left")
         self._show_label.setToolTip(
-            "This will show the \"CliX\" label on the left of the CliX widget command "
+            "This will show the \"CliX\" label on the left of the CliX widget command \n"
             "line."
         )
         self._show_label.setChecked(preference.show_label)
@@ -52,7 +52,7 @@ class QPreferenceDialog(QtW.QDialog):
         
         self._enter_completion = QtW.QCheckBox("Enable Enter key for completion")
         self._enter_completion.setToolTip(
-            "Pressing Enter key will select the completion suggestion, instead of "
+            "Pressing Enter key will select the completion suggestion, instead of \n"
             "executing the command."
         )
         self._enter_completion.setChecked(preference.enter_completion)
@@ -60,8 +60,8 @@ class QPreferenceDialog(QtW.QDialog):
 
         self._auto_focus = QtW.QCheckBox("Focus on CliX widget when typing")
         self._auto_focus.setToolTip(
-            "Automatically focus on the CliX widget when typing. This option is useful "
-            "when you have to go back and forth between the CliX widget and the main "
+            "Automatically focus on the CliX widget when typing. This option is useful \n"
+            "when you have to go back and forth between the CliX widget and the main \n"
             "window."
         )
         self._auto_focus.setChecked(preference.auto_focus)
