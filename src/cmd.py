@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from chimerax.core.commands import CmdDesc, run      # Command description
 from chimerax.core.commands.cli import NoArg, BoolArg, EnumOf
 import json

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 from platformdirs import user_data_dir
 

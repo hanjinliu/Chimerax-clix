@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from chimerax.core.tools import ToolInstance
 from qtpy import QtWidgets as QtW
 from .widgets import QCommandLineEdit, QShowHistoryButton, QShowDialogButton

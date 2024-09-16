@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import timeit
 import warnings
 from .user_data import CLIX_DATA_DIR, CLIX_PREFERENCE_FILE

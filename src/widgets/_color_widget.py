@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Iterable
+
 from qtpy import QtCore, QtGui, QtWidgets as QtW
 from qtpy.QtCore import Qt, Signal
 from .._utils import rgba_to_html
