@@ -48,4 +48,5 @@ ui tool show clix
 ## Issues/Requests
 
 If you find a bug, or have some feature requests, feel free to open an issue in this 
-GitHub repository, or contact me via [X/Twitter](https://twitter.com/liu_hanjin).
+GitHub repository, or contact me via [X/Twitter](https://twitter.com/liu_hanjin) or
+[bluesky](https://bsky.app/profile/liu-hanjin.bsky.social).
