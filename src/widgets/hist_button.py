@@ -25,6 +25,12 @@ class QShowHistoryButton(QtW.QPushButton):
         self._hist_list_widget = QHistoryWidget(self)
         self._hist_list_widget.setWindowFlags(QtCore.Qt.WindowType.Popup)
         self._hist_list_widget.setFixedWidth(420)
+        try:
+            bg_color = self._cli_widget.palette().color(QtGui.QPalette.ColorRole.Base)
+            is_dark = bg_color.lightness() < 128
+        except Exception:
+            is_dark = False
+        self._hist_list_widget.set_theme(is_dark)
         self._hist_list_widget.show()
         size = self._hist_list_widget.size()
         point = self.rect().topRight() - QtCore.QPoint(size.width(), size.height())
@@ -32,9 +38,20 @@ class QShowHistoryButton(QtW.QPushButton):
         self._hist_list_widget._filter._filter_line.setFocus()
 
 class QHistoryListModel(QtCore.QAbstractListModel):
-    def __init__(self, history, parent):
+    def __init__(self, history: list[str], parent: QHistoryList):
         super().__init__(parent)
         self._history = history
+        self.set_theme(False)  # initialize brushes
+    
+    def set_theme(self, is_dark: bool):
+        if is_dark:
+            self._brush_even = QtGui.QBrush(QtGui.QColor(23, 23, 0))
+            self._brush_odd = QtGui.QBrush(QtGui.QColor(0, 0, 0))
+            self._brush_current = QtGui.QBrush(QtGui.QColor(17, 17, 17))
+        else:
+            self._brush_current = QtGui.QBrush(QtGui.QColor(232, 232, 255))
+            self._brush_even = QtGui.QBrush(QtGui.QColor(255, 255, 255))
+            self._brush_odd = QtGui.QBrush(QtGui.QColor(238, 238, 238))
 
     def rowCount(self, parent=None):
         return len(self._history)
@@ -48,11 +65,11 @@ class QHistoryListModel(QtCore.QAbstractListModel):
             return _QFONT
         elif role == QtCore.Qt.ItemDataRole.BackgroundRole:
             if index.row() == self.parent().currentIndex().row():
-                return QtGui.QBrush(QtGui.QColor(232, 232, 255))
+                return self._brush_current
             if index.row() % 2 == 0:
-                return QtGui.QBrush(QtGui.QColor(255, 255, 255))
+                return self._brush_even
             else:
-                return QtGui.QBrush(QtGui.QColor(238, 238, 238))
+                return self._brush_odd
         return None
     
     if TYPE_CHECKING:
@@ -62,8 +79,7 @@ class QHistoryListModel(QtCore.QAbstractListModel):
 class QHistoryWidget(QtW.QWidget):
     def __init__(self, btn: QShowHistoryButton):
         super().__init__()
-        self._layout = QtW.QVBoxLayout()
-        self.setLayout(self._layout)
+        self._layout = QtW.QVBoxLayout(self)
         
         self._filter = QHistoryFilter()
         self._history_list = QHistoryList(btn)
@@ -79,6 +95,9 @@ class QHistoryWidget(QtW.QWidget):
             texts = self._filter.run_filter(self._history_list._model._history)
             self._history_list.set_list(texts)
         
+    def set_theme(self, is_dark: bool):
+        self._history_list._model.set_theme(is_dark)
+
 class QHistoryList(QtW.QListView):
     def __init__(self, parent: QShowHistoryButton) -> None:
         super().__init__(parent)

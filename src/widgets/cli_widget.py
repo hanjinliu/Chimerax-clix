@@ -16,8 +16,10 @@ from .._utils import colored
 from .._preference import Preference
 
 class QSuggestionLabel(QtW.QLabel):
-    clicked = QtCore.Signal()
+    """Label widget for inline suggestion."""
     
+    clicked = QtCore.Signal()
+
     def __init__(self):
         super().__init__()
         self.setCursor(Qt.CursorShape.IBeamCursor)
@@ -142,7 +144,14 @@ class QCommandLineEdit(QtW.QTextEdit):
         suggestion_widget = QSuggestionLabel()
         suggestion_widget.setFont(self.font())
         suggestion_widget.setParent(self, Qt.WindowType.ToolTip)
-        suggestion_widget.setStyleSheet("QSuggestionLabel { background-color: #ffffff; }")
+        try:
+            bg_color = self.viewport().palette().color(QtGui.QPalette.ColorRole.Base)
+            html_color = bg_color.name()
+        except Exception:
+            html_color = "#ffffff"
+        suggestion_widget.setStyleSheet(
+            "QSuggestionLabel { background-color: " + html_color + "; }"
+        )
         suggestion_widget.hide()
         @suggestion_widget.clicked.connect
         def _inline_clicked():
