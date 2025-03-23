@@ -151,7 +151,7 @@ def complete_chain(models, last_word: str, current_command: str | None):
     # Now, all_chain_ids is like ["/A", "/B", ...]
     return CompletionState(
         last_word, all_chain_ids, current_command, 
-        ["<i>chain ID</i>"] * len(all_chain_ids), type="chain"
+        ["(<i>chain ID</i>)"] * len(all_chain_ids), type="chain"
     )
 
 def complete_residue(models, last_word: str, current_command: str | None):
@@ -160,7 +160,7 @@ def complete_residue(models, last_word: str, current_command: str | None):
         all_atoms = [f"{residue_spec_str}@{_a}" for _a in ALL_ATOMS if _a.startswith(atom_spec)]
         return CompletionState(
             last_word, all_atoms, current_command, 
-            ["<i>atom</i>"] * len(all_atoms), type="residue,atom"
+            ["(<i>atom</i>)"] * len(all_atoms), type="residue,atom"
         )
     all_non_std_residues: set[str] = set()
     for model in models:
@@ -176,7 +176,7 @@ def complete_residue(models, last_word: str, current_command: str | None):
     completions.extend(f":{_a}" for _a in ALL_AMINO_ACIDS if _a.startswith(last_word[1:]))
     return CompletionState(
         last_word, completions, current_command, 
-        ["<i>residue</i>"] * len(all_non_std_residues) + ["<i>amino acid</i>"] * len(ALL_AMINO_ACIDS),
+        ["(<i>residue</i>)"] * len(all_non_std_residues) + ["(<i>amino acid</i>)"] * len(ALL_AMINO_ACIDS),
         type="residue",
     )
 
@@ -184,7 +184,7 @@ def complete_atom(models, last_word: str, current_command: str | None):
     all_atoms = [f"@{_a}" for _a in ALL_ATOMS if _a.startswith(last_word[1:])]
     return CompletionState(
         last_word, all_atoms, current_command, 
-        ["<i>atom</i>"] * len(all_atoms), type="atom",
+        ["(<i>atom</i>)"] * len(all_atoms), type="atom",
     )
 
 def _model_to_spec(model):

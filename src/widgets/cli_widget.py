@@ -407,6 +407,8 @@ class QCommandLineEdit(QtW.QTextEdit):
             self._dont_need_inline_suggestion = True
         elif event.key() == Qt.Key.Key_V and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             done = self._event_paste(event)
+        elif event.key() == Qt.Key.Key_W and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            done = self._event_delete_word(event)
         return done
 
     def _event_tab(self, event: QtGui.QKeyEvent):
@@ -426,6 +428,12 @@ class QCommandLineEdit(QtW.QTextEdit):
         self.insertPlainText(text)
         return True
     
+    def _event_delete_word(self, event: QtGui.QKeyEvent):
+        cursor = self.textCursor()
+        cursor.movePosition(QtGui.QTextCursor.MoveOperation.PreviousWord, QtGui.QTextCursor.MoveMode.KeepAnchor)
+        cursor.removeSelectedText()
+        return True
+
     def _event_down(self, event: QtGui.QKeyEvent):
         self._dont_need_inline_suggestion = True
         if self._list_widget.isVisible():

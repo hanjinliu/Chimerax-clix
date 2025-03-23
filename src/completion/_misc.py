@@ -56,9 +56,9 @@ def complete_keyword_name_or_value(
     else:
         it = itertools.chain(cmd_desc._required.values(), cmd_desc._optional.values())
         next_arg = None
-        for _ in range(len(args) - len(current_command.split(" "))):
+        for _ in range(len(args) - len(current_command.split(" ")) + 1):
             next_arg = next(it, None)
-            
+
         if next_arg:
             if state := complete_keyword_value(next_arg, last_word, current_command):
                 return state
