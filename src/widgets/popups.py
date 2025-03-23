@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
 from html import escape
 
 from ..types import WordInfo, resolve_cmd_desc
+from ..completion.action import Action
 from .._preference import load_preference
 from .._utils import colored
 
@@ -13,8 +15,14 @@ if TYPE_CHECKING:
     from .cli_widget import QCommandLineEdit
     from ..completion import CompletionState
 
+@dataclass
+class ItemContent:
+    text: str
+    info: str
+    action: Action
+
 class QCompletionPopup(QtW.QListWidget):
-    changed = QtCore.Signal(int, str)
+    changed = QtCore.Signal(int, ItemContent)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -56,25 +64,32 @@ class QCompletionPopup(QtW.QListWidget):
             if item.startswith(prefix):
                 prefix, item = item[:len(prefix)], item[len(prefix):]
             else:
-                continue
+                prefix = ""
             if prefix:
                 text = f"<b>{colored(prefix, color_theme.matched)}</b>{item}"
             else:
                 text = item
-            if cmp.info is not None:
-                info = cmp.info[_i]
-                text += f"  ({info})"
+            info = cmp.info[_i]
+            if info:
+                text += f" {info}"
             list_widget_item = self.item(_i)
             label = self.itemWidget(list_widget_item)
             label.setText(text)
-            list_widget_item.setData(Qt.ItemDataRole.UserRole, prefix + item)
+            list_widget_item.setData(
+                Qt.ItemDataRole.UserRole,
+                ItemContent(prefix + item, info, cmp.action[_i]),
+            )
 
     def set_row(self, idx: int):
         self.setCurrentRow(idx)
         self.scrollToItem(
             self.currentItem(), QtW.QAbstractItemView.ScrollHint.EnsureVisible
         )
-        self.changed.emit(idx, self.currentItem().data(Qt.ItemDataRole.UserRole))
+        if content := self.current_item_content():
+            self.changed.emit(idx, content)
+
+    def current_item_content(self) -> ItemContent:
+        return self.currentItem().data(Qt.ItemDataRole.UserRole)
 
     def goto_next(self):
         self.set_row((self.currentRow() + 1) % self.count())

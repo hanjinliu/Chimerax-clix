@@ -10,7 +10,7 @@ from ..completion import (
 )
 from chimerax.core.commands import run  # type: ignore
 from .consts import _FONT, TOOLTIP_FOR_AMINO_ACID
-from .popups import QCompletionPopup, QTooltipPopup
+from .popups import ItemContent, QCompletionPopup, QTooltipPopup
 from .highlighter import QCommandHighlighter
 from .._utils import colored
 from .._preference import Preference
@@ -97,6 +97,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         return None
 
     def _adjust_tooltip_for_list(self, idx: int):
+        """Move the tooltip popup next to the list widget."""
         item_rect = self._list_widget.visualItemRect(self._list_widget.item(idx))
         pos = self._list_widget.mapToGlobal(item_rect.topRight())
         if _is_too_bottom(pos.y() + self._tooltip_widget.height()):
@@ -106,9 +107,11 @@ class QCommandLineEdit(QtW.QTextEdit):
         pos.setX(pos.x() + 10)
         self._tooltip_widget.move(pos)
 
-    def _list_selection_changed(self, idx: int, text: str):
+    def _list_selection_changed(self, idx: int, content: ItemContent):
+        """Callback of the change in the current list widget index."""
         if not self._list_widget.isVisible():
             return
+        text = content.text
         if self._current_completion_state.type in ("residue", "model,residue"):
             # set residue name
             tooltip = TOOLTIP_FOR_AMINO_ACID.get(text.split(":")[-1], "")
@@ -126,7 +129,7 @@ class QCommandLineEdit(QtW.QTextEdit):
             self._adjust_tooltip_for_list(idx)
             self._tooltip_widget.setWordInfo(winfo, text)
             self._try_show_tooltip_widget()
-        
+
     def _create_list_widget(self):
         list_widget = QCompletionPopup()
         list_widget.setParent(self, Qt.WindowType.ToolTip)
@@ -282,6 +285,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         return None
 
     def _apply_inline_suggestion(self):
+        """Accept the inline suggestion and update the line edit."""
         cursor = self.textCursor()
         if not cursor.atEnd():
             cursor.movePosition(QtGui.QTextCursor.MoveOperation.EndOfLine)
@@ -541,8 +545,9 @@ class QCommandLineEdit(QtW.QTextEdit):
         self.setFixedHeight((self.fontMetrics().height() + 2) * nblocks + 6)
 
     def _complete_with_current_item(self):
-        comp = self._list_widget.currentItem().data(Qt.ItemDataRole.UserRole)
-        self._complete_with(comp)
+        comp = self._list_widget.current_item_content()
+        self._complete_with(comp.text)
+        comp.action.execute(self)
 
     def focusOutEvent(self, a0: QtGui.QFocusEvent) -> None:
         if QtW.QApplication.focusWidget():
