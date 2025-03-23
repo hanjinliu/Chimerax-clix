@@ -7,7 +7,7 @@ from qtpy.QtCore import Qt
 from html import escape
 
 from ..types import WordInfo, resolve_cmd_desc
-from ..completion.action import Action
+from ..action import Action, CommandPaletteAction
 from .._preference import load_preference
 from .._utils import colored
 
@@ -60,25 +60,38 @@ class QCompletionPopup(QtW.QListWidget):
         for _ in range(self.count() - len(cmp.completions)):
             self.takeItem(0)
 
-        for _i, item in enumerate(cmp.completions):
-            if item.startswith(prefix):
-                prefix, item = item[:len(prefix)], item[len(prefix):]
-            else:
-                prefix = ""
-            if prefix:
-                text = f"<b>{colored(prefix, color_theme.matched)}</b>{item}"
-            else:
-                text = item
-            info = cmp.info[_i]
-            if info:
-                text += f" {info}"
-            list_widget_item = self.item(_i)
-            label = self.itemWidget(list_widget_item)
-            label.setText(text)
-            list_widget_item.setData(
-                Qt.ItemDataRole.UserRole,
-                ItemContent(prefix + item, info, cmp.action[_i]),
-            )
+        if cmp.type == "command-palette":
+            for _i, item in enumerate(cmp.completions):
+                if not isinstance(action := cmp.action[_i], CommandPaletteAction):
+                    continue
+                list_widget_item = self.item(_i)
+                list_widget_item.setToolTip(action.tooltip)
+                list_widget_item.setText
+                list_widget_item.setData(
+                    Qt.ItemDataRole.UserRole,
+                    ItemContent(cmp.text, "", cmp.action[_i]),
+                )
+        else:
+            for _i, item in enumerate(cmp.completions):
+                if item.startswith(prefix):
+                    prefix, item = item[:len(prefix)], item[len(prefix):]
+                else:
+                    prefix = ""
+                if prefix:
+                    text = f"<b>{colored(prefix, color_theme.matched)}</b>{item}"
+                else:
+                    text = item
+                info = cmp.info[_i]
+                if info:
+                    text += f" {info}"
+                list_widget_item = self.item(_i)
+                label = self.itemWidget(list_widget_item)
+                assert isinstance(label, QtW.QLabel)
+                label.setText(text)
+                list_widget_item.setData(
+                    Qt.ItemDataRole.UserRole,
+                    ItemContent(prefix + item, info, cmp.action[_i]),
+                )
 
     def set_row(self, idx: int):
         self.setCurrentRow(idx)

@@ -7,7 +7,7 @@ from chimerax.core.commands import list_selectors  # type: ignore
 from chimerax.core.commands import OpenFileNameArg, OpenFileNamesArg, SaveFileNameArg, OpenFolderNameArg, SaveFolderNameArg  # type: ignore
 
 from .state import CompletionState
-from .action import NoAction, SelectColor, SelectFile
+from ..action import NoAction, SelectColor, SelectFile
 from ..types import resolve_cmd_desc, WordInfo, CmdDesc
 from ..algorithms import filepath
 from .._utils import colored

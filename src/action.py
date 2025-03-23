@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 from qtpy.QtWidgets import QColorDialog, QFileDialog
 
 if TYPE_CHECKING:
-    from ..widgets.cli_widget import QCommandLineEdit
+    from .widgets.cli_widget import QCommandLineEdit
 
 class Action:
     """Action to execute when the user selects the item for completion."""
@@ -55,3 +55,13 @@ class SelectFile(Action):
     @classmethod
     def history(cls):
         return cls._history.copy()
+
+class CommandPaletteAction(Action):
+    def __init__(self, func, desc: str, tooltip: str):
+        self.func = func
+        self.desc = desc
+        self.tooltip = tooltip
+
+    def execute(self, widget: "QCommandLineEdit"):
+        self.func()
+        widget.setText("")

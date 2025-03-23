@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from .action import Action, NoAction
+from ..action import Action, NoAction
 from ..types import Annotation
 
 @dataclass
