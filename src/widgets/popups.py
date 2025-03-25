@@ -13,7 +13,7 @@ from .._utils import colored
 
 if TYPE_CHECKING:
     from .cli_widget import QCommandLineEdit
-    from ..completion import CompletionState
+    from ..algorithms import CompletionState
 
 @dataclass
 class ItemContent:
