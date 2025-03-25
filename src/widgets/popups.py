@@ -7,13 +7,13 @@ from qtpy.QtCore import Qt
 from html import escape
 
 from ..types import WordInfo, resolve_cmd_desc
-from ..completion.action import Action
+from ..algorithms.action import Action
 from .._preference import load_preference
 from .._utils import colored
 
 if TYPE_CHECKING:
     from .cli_widget import QCommandLineEdit
-    from ..completion import CompletionState
+    from ..algorithms import CompletionState
 
 @dataclass
 class ItemContent:

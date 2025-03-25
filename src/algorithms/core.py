@@ -2,30 +2,23 @@ from __future__ import annotations
 
 from pathlib import Path
 import itertools
-from typing import Any, Iterable, Iterator
-from chimerax.core.commands import list_selectors  # type: ignore
-from chimerax.core.commands import OpenFileNameArg, OpenFileNamesArg, SaveFileNameArg, OpenFolderNameArg, SaveFolderNameArg  # type: ignore
+from typing import Any, Iterable
 
-from .state import CompletionState
 from .action import NoAction, SelectColor, SelectFile
-from ..types import resolve_cmd_desc, WordInfo, CmdDesc
-from ..algorithms import filepath
+from .filepath import complete_path
+from .state import CompletionState, Context
+from .model import complete_model, complete_chain, complete_residue, complete_atom
+from ..types import resolve_cmd_desc
 from .._utils import colored
 
-def complete_path(last_word: str, current_command: str) -> CompletionState | None:
-    """Return list of available paths for the given last word."""
-    if completions := filepath.complete_path(last_word):
-        return CompletionState(
-            last_word,
-            completions=completions,
-            command=current_command,
-            info=["(<i>path</i>)"] * len(completions),
-            type="path",
-        )
-    return None
+# For types, see https://github.com/RBVI/ChimeraX/tree/develop/src/bundles/core/src/commands
 
 def complete_keyword_name_or_value(
-    winfo: WordInfo, args: list[str], last_word: str, current_command: str, text: str
+    args: list[str],
+    last_word: str, 
+    current_command: str,
+    text: str,
+    context: Context,
 ) -> CompletionState | None:
     """Get completion state for given command arguments
     
@@ -42,53 +35,47 @@ def complete_keyword_name_or_value(
     text : str
         The entire command string
     """
-    cmd_desc = resolve_cmd_desc(winfo)
+    cmd_desc = resolve_cmd_desc(context.wordinfo)
     if cmd_desc is None:
         return CompletionState(text, [], current_command)
-    
-    last_pref = args[-1]
+
+    # last_pref is used to determine the last keyword argument
+    if len(args) > 0:
+        last_pref = args[-1]
+    else:
+        last_pref = ""
     keyword_just_typed = last_pref in cmd_desc._keyword
     if keyword_just_typed:
         last_annot = cmd_desc._keyword[last_pref]
-        state = complete_keyword_value(last_annot, last_word, current_command)
-        if state is not None:
+        if state := complete_keyword_value(last_annot, last_word, current_command, context):
             return state
     else:
         it = itertools.chain(cmd_desc._required.values(), cmd_desc._optional.values())
         next_arg = None
-        for _ in range(len(args) - len(current_command.split(" ")) + 1):
+        for _ in range(len(args) + 1):
             next_arg = next(it, None)
-
         if next_arg:
-            if state := complete_keyword_value(next_arg, last_word, current_command):
+            if state := complete_keyword_value(next_arg, last_word, current_command, context):
                 return state
-            elif is_spec(next_arg):
-                map_table = str.maketrans({c: " " for c in "&|~"})
-                last_word = last_word.translate(map_table).split(" ")[-1]
-                selectors = [s for s in iter_selectors() if s.startswith(last_word)]
-                if selectors:
-                    return CompletionState(
-                        last_word,
-                        completions=selectors,
-                        command=current_command,
-                        info=["(<i>selector</i>)"] * len(selectors),
-                        type="selector",
-                    )
-
+            
     if keyword_just_typed and not is_noarg(cmd_desc._keyword[last_pref]):
         return None
     
     # Show keyword list. To make the keywords ordered, we first show the optional
     # arguments.
-    return completion_state_for_word(cmd_desc, last_word, current_command)
+    return completion_state_for_word(last_word, current_command, context)
 
 def complete_keyword_value(
     last_annot, 
     last_word: str,
     current_command: str,
+    context: Context
 ) -> CompletionState | None:
     """Get completion for keyword value of specific types."""
-    if is_enumof(last_annot):
+
+    if is_noarg(last_annot):
+        return completion_state_for_word(last_word, current_command, context)
+    elif is_enumof(last_annot):
         values = to_list_of_str(last_annot.values, startswith=last_word)
         return _from_values(values, last_word, current_command, "enum", last_annot)
     elif is_dynamic_enum(last_annot):
@@ -138,16 +125,7 @@ def complete_keyword_value(
         paths = [Path.home().as_posix()] + SelectFile.history()
         if last_word and (states := complete_path(last_word, current_command)):
             paths.extend(states.completions)
-        if safe_is_subclass(last_annot, OpenFileNameArg):
-            mode = "r"
-        elif safe_is_subclass(last_annot, OpenFileNamesArg):
-            mode = "rm"
-        elif safe_is_subclass(last_annot, SaveFileNameArg):
-            mode = "w"
-        elif safe_is_subclass(last_annot, OpenFolderNameArg):
-            mode = "d"
-        else:
-            mode = "r"  # never happens
+        mode = context.get_file_open_mode(last_annot)
         
         return CompletionState(
             text=last_word,
@@ -159,13 +137,33 @@ def complete_keyword_value(
             keyword_type=last_annot,
         )
 
+    elif is_axis(last_annot):
+        return CompletionState(
+            text=last_word,
+            completions=["x", "y", "z", "-x", "-y", "-z"],
+            command=current_command,
+            info=["(<i>axis</i>)"] * 6,
+            type="keyword-value",
+            keyword_type=last_annot,
+        )
+    
+    elif is_value_type(last_annot):
+        return CompletionState(
+            text=last_word,
+            completions=["int8", "uint8", "int16", "uint16", "int32", "uint32", "float32", "float64"],
+            command=current_command,
+            info=["(<i>value type</i>)"] * 8,
+            type="keyword-value",
+            keyword_type=last_annot,
+        )
+
     elif is_or(last_annot):
         # concatenate all the completions
         completions = []
         info = []
         action = []
         for each in last_annot.annotations:
-            if state := complete_keyword_value(each, last_word, current_command):
+            if state := complete_keyword_value(each, last_word, current_command, context):
                 completions.extend(state.completions)
                 info.extend(state.info)
                 action.extend(state.action)
@@ -179,6 +177,34 @@ def complete_keyword_value(
                 type="keyword-value",
                 keyword_type=last_annot,
             )
+    
+    if is_model_like(last_annot):
+        if is_density_map(last_annot):
+            filt = context.filter_volume
+        elif is_surface(last_annot):
+            filt = context.filter_surface
+        else:
+            filt = lambda x: x
+        if len(last_word) == 0 or last_word.startswith("#"):
+            return complete_model(context, last_word, current_command, model_filter=filt)
+        if last_word.startswith("/"):
+            return complete_chain(context, last_word, current_command, model_filter=filt)
+        if last_word.startswith(":"):
+            return complete_residue(context, last_word, current_command, model_filter=filt)
+        if last_word.startswith("@"):
+            return complete_atom(context, last_word, current_command)
+        if is_spec(last_annot):
+            map_table = str.maketrans({c: " " for c in "&|~"})
+            last_word = last_word.translate(map_table).split(" ")[-1]
+            selectors = [s for s in context.selectors if s.startswith(last_word)]
+            if selectors:
+                return CompletionState(
+                    last_word,
+                    completions=selectors,
+                    command=current_command,
+                    info=["(<i>selector</i>)"] * len(selectors),
+                    type="selector",
+                )
     return None
 
 def _from_values(
@@ -200,11 +226,12 @@ def _from_values(
     )
 
 def completion_state_for_word(
-    cmd_desc: CmdDesc,
     last_word: str,
     current_command: str,
+    context: Context,
 ) -> CompletionState | None:
     comp_list: list[str] = []
+    cmd_desc = resolve_cmd_desc(context.wordinfo)
     keywords = cmd_desc._keyword.copy()
     for _k in cmd_desc._optional.keys():
         if _k not in keywords:
@@ -225,6 +252,39 @@ def completion_state_for_word(
         )
     return None
 
+def is_model(annotation) -> bool:
+    return getattr(annotation, "name", "") in (
+        "a model specifier", 
+        "a models specifier",
+        "a model id",  # TODO: is this correct?
+    )
+
+def is_surface(annotation) -> bool:
+    return getattr(annotation, "name", "") in (
+        "a surface specifier",
+        "a surfaces specifier",
+    )
+
+def is_density_map(annotation) -> bool:
+    return getattr(annotation, "name", "") in (
+        "a density map specifier",
+        "a density maps specifier",
+    )
+
+def is_value_type(annotation) -> bool:
+    return getattr(annotation, "name", "") == "numeric value type"
+
+def is_model_like(last_annot) -> bool:
+    return (
+        is_model(last_annot)
+        or is_surface(last_annot) 
+        or is_density_map(last_annot)
+        or is_spec(last_annot)
+    )
+
+def is_spec(annotation) -> bool:
+    return getattr(annotation, "name", "") == "an objects specifier"
+
 def is_enumof(annotation) -> bool:
     return type(annotation).__name__ == "EnumOf"
 
@@ -243,9 +303,6 @@ def is_onoff(annotation) -> bool:
 def is_noarg(annotation) -> bool:
     return type(annotation).__name__ == "NoArg"
 
-def is_spec(annotation) -> bool:
-    return getattr(annotation, "name", "") == "an objects specifier"
-
 def is_or(annotation) -> bool:
     return type(annotation).__name__ == "Or"
 
@@ -255,12 +312,8 @@ def is_color(annotation) -> bool:
 def is_file_path(annotation) -> bool:
     return hasattr(annotation, "check_existence")
 
-def iter_selectors() -> Iterator[str]:
-    """Iterate over all selectors available in ChimeraX.
-    
-    This method excludes the atoms and ion groups to avoid too many completions.
-    """
-    return (a for a in list_selectors() if a[0] == a[0].lower())
+def is_axis(annotation) -> bool:
+    return getattr(annotation, "name", "") == "an axis vector"
 
 def to_list_of_str(it: Iterable[Any], startswith: str = "") -> list[str]:
     out: list[str] = []

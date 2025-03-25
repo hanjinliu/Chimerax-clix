@@ -1,9 +1,21 @@
 from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
+from .state import CompletionState
 
-def complete_path(last_word: str) -> list[str] | None:
+def complete_path(last_word: str, current_command: str) -> CompletionState | None:
     """Return list of available paths for the given last word."""
+    if completions := _complete_path_impl(last_word):
+        return CompletionState(
+            last_word,
+            completions=completions,
+            command=current_command,
+            info=["(<i>path</i>)"] * len(completions),
+            type="path",
+        )
+    return None
+
+def _complete_path_impl(last_word: str) -> list[str] | None:
     if last_word == "":
         return None
     if last_word.endswith(("/.", "\\.")):
@@ -39,21 +51,3 @@ def _iter_upto(it: Iterable[str], n: int = 64, include_hidden: bool = False) -> 
         return [a for _, a in zip(range(n), it)]
     else:
         return [a for _, a in zip(range(n), it) if not a.startswith(".")]
-
-
-if __name__ == "__main__":
-    import os
-
-    def assert_equal(a, b):
-        assert a == b, f"{a=} {b=}"
-
-    cwd = Path(__file__).parent.parent.as_posix()
-    os.chdir(cwd)  # cd src
-
-    assert_equal(complete_path("co"), ["completion"])
-    assert_equal(complete_path("t"), ["tool.py", "types.py"])
-
-    # absolute path
-    assert_equal(complete_path(f"{cwd}/co"), ["completion"])
-    assert_equal(complete_path(f"{cwd}/t"), ["tool.py", "types.py"])
-    print("PASSED")

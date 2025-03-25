@@ -1,19 +1,54 @@
 from __future__ import annotations
 from typing import Any
+from dataclasses import dataclass, field
 
+@dataclass
 class WordInfo:
-    cmd_desc: CmdDesc | None
-    subcommands: dict[str, WordInfo]
+    """Fake word info"""
+    cmd_desc: CmdDesc | None = None
+    subcommands: dict[str, WordInfo] = field(default_factory=dict)
 
+@dataclass
 class CmdDesc:
-    _required: dict[str, Any]
-    _optional: dict[str, Any]
-    _keyword: dict[str, Any]
-    synopsis: str | None
-    url: str | None
+    """Fake command description"""
+    _required: dict[str, Any] = field(default_factory=dict)
+    _optional: dict[str, Any] = field(default_factory=dict)
+    _keyword: dict[str, Any] = field(default_factory=dict)
+    synopsis: str | None = None
+    url: str | None = None
+    
+    @classmethod
+    def construct(
+        cls,
+        required: dict[str, Any] | None = None,
+        optional: dict[str, Any] | None = None,
+        keyword: dict[str, Any] | None = None,
+        synopsis: str | None = None,
+        url: str | None = None,
+    ) -> CmdDesc:
+        return cls(
+            _required=required or {},
+            _optional=optional or {},
+            _keyword=keyword or {},
+            synopsis=synopsis,
+            url=url,
+        )
 
 class Annotation:
     name: str
+
+@dataclass
+class ModelType:
+    """Fake model type"""
+    id: tuple[int, ...]
+    name: str
+    chains: list[ChainType] = field(default_factory=list)
+    nonstandard_residue_names: set[str] = field(default_factory=set)
+
+@dataclass
+class ChainType:
+    """Fake chain type"""
+    chain_id: str
 
 _ALWAYS_DEFERRED: set[WordInfo] = set()
 
