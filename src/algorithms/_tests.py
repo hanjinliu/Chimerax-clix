@@ -7,11 +7,11 @@ def test_complete_path():
     cwd = Path(__file__).parent.parent.as_posix()
     os.chdir(cwd)  # cd src
 
-    assert complete_path("co", "open").completions == ["completion"]
+    assert complete_path("al", "open").completions == ["algorithms"]
     assert complete_path("t", "open").completions == ["tool.py", "types.py"]
 
     # absolute path
-    assert complete_path(f"{cwd}/co", "open").completions == ["completion"]
+    assert complete_path(f"{cwd}/al", "open").completions == ["algorithms"]
     assert complete_path(f"{cwd}/t", "open").completions == ["tool.py", "types.py"]
 
 def get_context():

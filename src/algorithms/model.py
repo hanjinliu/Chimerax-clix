@@ -92,12 +92,9 @@ def complete_model(
 
     comps: list[str] = []
     info: list[str] = []
-    if last_word.startswith("#"):
-        seed = last_word[1:]
-    else:
-        seed = last_word
+    seed = _make_seed(last_word, "#")
     if "," in seed or "-" in seed:
-        former, sep, num = _rsplit_spec(seed[1:])
+        former, sep, num = _rsplit_spec(seed)
         spec_existing = ModelSpec(former)
         # check the former part exists in the model list
         if len(spec_existing.filter(models)) == 0:
@@ -110,7 +107,7 @@ def complete_model(
     else:
         for model in models:
             spec = _model_to_spec(model)
-            if spec.startswith(seed):
+            if spec.startswith("#" + seed):
                 comps.append(spec)
                 info.append(model.name)
     return CompletionState(last_word, comps, current_command, info, type="model")
@@ -158,12 +155,9 @@ def complete_chain(
 
     # collect all the available chain IDs
     all_chain_ids: set[str] = set()
-    if last_word.startswith("/"):
-        seed = last_word[1:]
-    else:
-        seed = last_word
+    seed = _make_seed(last_word, "/")
     if "," in seed or "-" in seed:
-        former, sep, num = _rsplit_spec(seed[1:])
+        former, sep, num = _rsplit_spec(seed)
         spec_existing = ChainSpec(former)
         # check the former part exists in the model list
         if len(spec_existing.filter(all_chains)) == 0:
@@ -174,7 +168,7 @@ def complete_chain(
                 all_chain_ids.add(f"/{former}{sep}{_id}")
     else:
         for chain in all_chains:
-            if chain.chain_id.startswith(seed[1:]):
+            if chain.chain_id.startswith(seed):  # chain id does not start with "/"
                 all_chain_ids.add(f"/{chain.chain_id}")
     all_chain_ids = sorted(all_chain_ids)
 
@@ -209,7 +203,8 @@ def complete_residue(
     completions = sorted(all_non_std_residues)
     # Now, completions is like [":ATP", ":GTP", ...]
     # Adds the standard amino acids
-    completions.extend(f":{_a}" for _a in ALL_AMINO_ACIDS if _a.startswith(last_word[1:]))
+    seed = _make_seed(last_word, ":")
+    completions.extend(f":{_a}" for _a in ALL_AMINO_ACIDS if _a.startswith(seed))
     return CompletionState(
         last_word, completions, current_command, 
         ["(<i>residue</i>)"] * len(all_non_std_residues) + ["(<i>amino acid</i>)"] * len(ALL_AMINO_ACIDS),
@@ -217,11 +212,17 @@ def complete_residue(
     )
 
 def complete_atom(context: Context, last_word: str, current_command: str | None):
-    all_atoms = [f"@{_a}" for _a in ALL_ATOMS if _a.startswith(last_word[1:])]
+    seed = _make_seed(last_word, "@")
+    all_atoms = [f"@{_a}" for _a in ALL_ATOMS if _a.startswith(seed)]
     return CompletionState(
         last_word, all_atoms, current_command, 
         ["(<i>atom</i>)"] * len(all_atoms), type="atom",
     )
+
+def _make_seed(last_word: str, prefix: str) -> str:
+    if last_word.startswith(prefix):
+        return last_word[len(prefix):]
+    return last_word
 
 def _model_to_spec(model):
     return "#" + ".".join(str(_id) for _id in model.id)
