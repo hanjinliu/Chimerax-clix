@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Iterator
 from .state import CompletionState
+from ..types import ModelType, ChainType
 
 ALL_ATOMS = ["Ca", "Cb", "C", "N", "O", "OH"]
 ALL_AMINO_ACIDS = [
@@ -32,7 +33,7 @@ TOOLTIP_FOR_AMINO_ACID = {
     "Val": "Valine (V)",
 }
 
-def complete_model(models, last_word: str, current_command: str | None):
+def complete_model(models: list[ModelType], last_word: str, current_command: str | None):
     # model ID completion
     # "#" -> "#1 (model name)" etc.
     # try model+chain specifiction completion such as "#1/B"
@@ -69,6 +70,7 @@ def complete_model(models, last_word: str, current_command: str | None):
         )
     if "@" in last_word:
         model_spec_str, atom_spec = last_word.split("@", 1)
+        model_spec = ModelSpec(model_spec_str[1:])
         state = complete_atom(
             model_spec.filter(models),
             last_word="@" + atom_spec,
@@ -82,8 +84,8 @@ def complete_model(models, last_word: str, current_command: str | None):
             type="model," + state.type,
         )
 
-    comps = []
-    info = []    
+    comps: list[str] = []
+    info: list[str] = []
     if "," in last_word or "-" in last_word:
         former, sep, num = _rsplit_spec(last_word[1:])
         spec_existing = ModelSpec(former)
@@ -103,7 +105,7 @@ def complete_model(models, last_word: str, current_command: str | None):
                 info.append(model.name)
     return CompletionState(last_word, comps, current_command, info, type="model")
 
-def complete_chain(models, last_word: str, current_command: str | None):
+def complete_chain(models: list[ModelType], last_word: str, current_command: str | None):
     if ":" in last_word:
         chain_spec_str, residue_spec = last_word.split(":", 1)
         state = complete_residue(models, last_word=":" + residue_spec, current_command=current_command)
@@ -125,7 +127,7 @@ def complete_chain(models, last_word: str, current_command: str | None):
             type="chain," + state.type,
         )
     
-    all_chains = []
+    all_chains: list[ChainType] = []
     for model in models:
         if hasattr(model, "chains"):
             all_chains.extend(model.chains)
@@ -154,7 +156,7 @@ def complete_chain(models, last_word: str, current_command: str | None):
         ["(<i>chain ID</i>)"] * len(all_chain_ids), type="chain"
     )
 
-def complete_residue(models, last_word: str, current_command: str | None):
+def complete_residue(models: list[ModelType], last_word: str, current_command: str | None):
     if "@" in last_word:
         residue_spec_str, atom_spec = last_word.split("@", 1)
         all_atoms = [f"{residue_spec_str}@{_a}" for _a in ALL_ATOMS if _a.startswith(atom_spec)]
@@ -180,7 +182,7 @@ def complete_residue(models, last_word: str, current_command: str | None):
         type="residue",
     )
 
-def complete_atom(models, last_word: str, current_command: str | None):
+def complete_atom(models: list[ModelType], last_word: str, current_command: str | None):
     all_atoms = [f"@{_a}" for _a in ALL_ATOMS if _a.startswith(last_word[1:])]
     return CompletionState(
         last_word, all_atoms, current_command, 
@@ -224,10 +226,10 @@ class ModelSpec:
                         continue
         self.ids = ids
 
-    def filter(self, models: list) -> list:
+    def filter(self, models: list[ModelType]) -> list[ModelType]:
         return [m for m in models if m.id in self.ids]
     
-    def contains(self, model) -> bool:
+    def contains(self, model: ModelType) -> bool:
         return model.id in self.ids
 
 class ChainSpec:
@@ -244,10 +246,10 @@ class ChainSpec:
                     continue
         self.ids = ids
     
-    def filter(self, chains: list) -> list:
+    def filter(self, chains: list[ChainType]) -> list:
         return [c for c in chains if ord(c.chain_id) in self.ids]
     
-    def contains(self, chain) -> bool:
+    def contains(self, chain: ChainType) -> bool:
         return ord(chain.chain_id) in self.ids
 
 def _safe_range(start: str, end: str) -> range:

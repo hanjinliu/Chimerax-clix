@@ -4,10 +4,8 @@ from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
 from ..types import WordInfo, resolve_cmd_desc
 from .._history import HistoryManager
-from ..completion import (
-    CompletionState, complete_path, complete_keyword_name_or_value, complete_model, 
-    complete_chain, complete_residue, complete_atom
-)
+from ..completion import complete_keyword_name_or_value
+from ..algorithms import complete_model, complete_chain, complete_residue, complete_atom, complete_path, CompletionState
 from chimerax.core.commands import run  # type: ignore
 from .consts import _FONT, TOOLTIP_FOR_AMINO_ACID
 from .popups import ItemContent, QCompletionPopup, QTooltipPopup

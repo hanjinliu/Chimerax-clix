@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Any
+from dataclasses import dataclass, field
 
 class WordInfo:
     cmd_desc: CmdDesc | None
@@ -14,6 +15,19 @@ class CmdDesc:
 
 class Annotation:
     name: str
+
+@dataclass
+class ModelType:
+    """Fake model type"""
+    id: tuple[int, ...]
+    name: str
+    chains: list[ChainType] = field(default_factory=list)
+    nonstandard_residue_names: set[str] = field(default_factory=set)
+
+@dataclass
+class ChainType:
+    """Fake chain type"""
+    chain_id: str
 
 _ALWAYS_DEFERRED: set[WordInfo] = set()
 

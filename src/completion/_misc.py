@@ -6,26 +6,17 @@ from typing import Any, Iterable, Iterator
 from chimerax.core.commands import list_selectors  # type: ignore
 from chimerax.core.commands import OpenFileNameArg, OpenFileNamesArg, SaveFileNameArg, OpenFolderNameArg, SaveFolderNameArg  # type: ignore
 
-from .state import CompletionState
-from .action import NoAction, SelectColor, SelectFile
+from ..algorithms.action import NoAction, SelectColor, SelectFile
 from ..types import resolve_cmd_desc, WordInfo, CmdDesc
-from ..algorithms import filepath
+from ..algorithms import complete_path, CompletionState
 from .._utils import colored
 
-def complete_path(last_word: str, current_command: str) -> CompletionState | None:
-    """Return list of available paths for the given last word."""
-    if completions := filepath.complete_path(last_word):
-        return CompletionState(
-            last_word,
-            completions=completions,
-            command=current_command,
-            info=["(<i>path</i>)"] * len(completions),
-            type="path",
-        )
-    return None
-
 def complete_keyword_name_or_value(
-    winfo: WordInfo, args: list[str], last_word: str, current_command: str, text: str
+    winfo: WordInfo, 
+    args: list[str],
+    last_word: str, 
+    current_command: str,
+    text: str,
 ) -> CompletionState | None:
     """Get completion state for given command arguments
     
@@ -142,7 +133,7 @@ def complete_keyword_value(
             mode = "r"
         elif safe_is_subclass(last_annot, OpenFileNamesArg):
             mode = "rm"
-        elif safe_is_subclass(last_annot, SaveFileNameArg):
+        elif safe_is_subclass(last_annot, SaveFileNameArg) or safe_is_subclass(last_annot, SaveFolderNameArg):
             mode = "w"
         elif safe_is_subclass(last_annot, OpenFolderNameArg):
             mode = "d"
