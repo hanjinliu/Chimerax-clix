@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from typing import Any, Callable
 from .action import Action, NoAction
 from ..types import Annotation, ModelType, WordInfo
@@ -35,6 +35,11 @@ class Context:
     get_file_open_mode: Callable[[Any], str] = lambda x: "r"
 
     def with_models(self, models: list[ModelType]) -> Context:
-        new = asdict(self)
-        new["models"] = models
-        return Context(**new)
+        return Context(
+            models=models,
+            selectors=self.selectors,
+            wordinfo=self.wordinfo,
+            filter_volume=self.filter_volume,
+            filter_surface=self.filter_surface,
+            get_file_open_mode=self.get_file_open_mode,
+        )
