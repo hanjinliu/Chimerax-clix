@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import cache
+from pathlib import Path
 from typing import Callable
 from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
@@ -91,7 +92,8 @@ class QCommandLineEdit(QtW.QTextEdit):
         if len(self._current_completion_state.completions) == 0:
             return False
         if len(self._current_completion_state.completions) == 1 and allow_auto:
-            self._complete_with(self._current_completion_state.completions[0])
+            state = self._current_completion_state
+            self._complete_with(state.completions[0], state.type)
         return True
 
     def text(self) -> str:
@@ -258,7 +260,7 @@ class QCommandLineEdit(QtW.QTextEdit):
                 text=text,
                 context=self.get_context(winfo),
             ):
-                # TODO: don't show keywords taht are already in the command line
+                # TODO: don't show keywords that are already in the command line
                 return state
 
         # path completion
@@ -371,7 +373,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         if (
             not self._tooltip_widget.isVisible()
             and tooltip != ""
-            and self._current_completion_state.type != "path"
+            and "path" not in self._current_completion_state.type.split(",")
         ):
             # show tooltip because there's something to show
             self._tooltip_widget.show()
@@ -392,9 +394,13 @@ class QCommandLineEdit(QtW.QTextEdit):
                 self._tooltip_widget.move(pos)
         return None
 
-    def _complete_with(self, comp: str):
-        _n = len(self._current_completion_state.text)
-        self.insertPlainText(comp[_n:])
+    def _complete_with(self, comp: str, typ: str):
+        if "path" in typ.split(","):
+            _n = len(self._current_completion_state.text.rsplit("/", 1)[-1].rsplit("\\", 1)[-1])
+        else:
+            _n = len(self._current_completion_state.text)
+        text_to_comp = comp[_n:]
+        self.insertPlainText(text_to_comp)
         self._update_completion_state(False)
         self._close_popups()
         return None
@@ -592,7 +598,7 @@ class QCommandLineEdit(QtW.QTextEdit):
 
     def _complete_with_current_item(self):
         comp = self._list_widget.current_item_content()
-        self._complete_with(comp.text)
+        self._complete_with(comp.text, comp.type)
         comp.action.execute(self)
 
     def focusOutEvent(self, a0: QtGui.QFocusEvent) -> None:

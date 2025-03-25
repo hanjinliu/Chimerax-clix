@@ -138,17 +138,21 @@ def complete_keyword_value(
         )
 
     elif is_file_path(last_annot):
-        paths = [Path.home().as_posix()] + SelectFile.history()
         if last_word and (states := complete_path(last_word, current_command)):
-            paths.extend(states.completions)
+            paths = states.completions
+            info = ["(<i>path</i>)"] * len(paths)
+        else:
+            # empty
+            paths = [""] + [Path.home().as_posix()] + SelectFile.history()
+            info=["<i>Browse ...</i>"] + ["(<i>path</i>)"] * (len(paths) - 1),
         mode = context.get_file_open_mode(last_annot)
         
         return CompletionState(
             text=last_word,
-            completions=[""] + paths,
+            completions=paths,
             command=current_command,
-            info=["<i>Browse ...</i>"] + ["(<i>path</i>)"] * len(paths),
-            type="keyword-value",
+            info=info,
+            type="keyword-value,path",
             action=[SelectFile(mode=mode)] + [NoAction()] * len(paths),
             keyword_type=last_annot,
         )
