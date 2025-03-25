@@ -4,7 +4,7 @@ from pathlib import Path
 import itertools
 from typing import Any, Iterable
 
-from .action import NoAction, SelectColor, SelectFile
+from .action import NoAction, TypeErrorAction, SelectColor, SelectFile
 from .filepath import complete_path
 from .state import CompletionState, Context
 from .model import complete_model, complete_chain, complete_residue, complete_atom
@@ -44,8 +44,20 @@ def complete_keyword_name_or_value(
         last_pref = args[-1]
     else:
         last_pref = ""
+    
     keyword_just_typed = last_pref in cmd_desc._keyword
+    not_enough_args = len(cmd_desc._required) > len(args) - int(keyword_just_typed)
     if keyword_just_typed:
+        # if not all the required arguments are given, complete the keyword value
+        if not_enough_args:
+            return CompletionState(
+                text=text,
+                completions=[""],
+                command=current_command,
+                info=[colored("Not enough arguments", "red")],
+                action=[TypeErrorAction()],
+                type="keyword-value",
+            )
         last_annot = cmd_desc._keyword[last_pref]
         if state := complete_keyword_value(last_annot, last_word, current_command, context):
             return state
@@ -57,13 +69,15 @@ def complete_keyword_name_or_value(
         if next_arg:
             if state := complete_keyword_value(next_arg, last_word, current_command, context):
                 return state
-            
+
     if keyword_just_typed and not is_noarg(cmd_desc._keyword[last_pref]):
         return None
     
     # Show keyword list. To make the keywords ordered, we first show the optional
     # arguments.
-    return completion_state_for_word(last_word, current_command, context)
+    if not_enough_args:
+        return None
+    return list_keywords(last_word, current_command, context)
 
 def complete_keyword_value(
     last_annot, 
@@ -74,7 +88,7 @@ def complete_keyword_value(
     """Get completion for keyword value of specific types."""
 
     if is_noarg(last_annot):
-        return completion_state_for_word(last_word, current_command, context)
+        return list_keywords(last_word, current_command, context)
     elif is_enumof(last_annot):
         values = to_list_of_str(last_annot.values, startswith=last_word)
         return _from_values(values, last_word, current_command, "enum", last_annot)
@@ -97,9 +111,11 @@ def complete_keyword_value(
             last_annot.annotation.values,
             startswith=last_word
         )
-        if len(values) == 1 and last_word == values[0]:
-            values = []
         valid_values = [v for v in values if v.startswith(last_word)]
+        if len(valid_values) == 1 and last_word == valid_values[0]:
+            valid_values = []
+        elif len(valid_values) == 0:
+            return None
         return CompletionState(
             text=last_word,
             completions=valid_values,
@@ -237,9 +253,13 @@ def _from_values(
     current_command: str,
     info_str: str,
     last_annot,
-) -> CompletionState:
+) -> CompletionState | None:
     if len(values) == 1 and last_word == values[0]:
+        # single match, no need to show
         values = []
+    elif len(values) == 0:
+        # no match. Return None to allow other completions
+        return None
     return CompletionState(
         text=last_word,
         completions=values,
@@ -249,7 +269,7 @@ def _from_values(
         keyword_type=last_annot,
     )
 
-def completion_state_for_word(
+def list_keywords(
     last_word: str,
     current_command: str,
     context: Context,

@@ -13,6 +13,10 @@ class NoAction(Action):
     def execute(self, widget: "QCommandLineEdit"):
         return None
 
+class TypeErrorAction(Action):
+    def execute(self, widget: "QCommandLineEdit"):
+        return None
+
 class SelectColor(Action):
     _history = []
 

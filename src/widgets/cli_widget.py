@@ -258,6 +258,7 @@ class QCommandLineEdit(QtW.QTextEdit):
                 text=text,
                 context=self.get_context(winfo),
             ):
+                # TODO: don't show keywords taht are already in the command line
                 return state
 
         # path completion
