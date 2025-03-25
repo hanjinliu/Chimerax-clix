@@ -20,6 +20,7 @@ class ItemContent:
     text: str
     info: str
     action: Action
+    type: str
 
 class QCompletionPopup(QtW.QListWidget):
     changed = QtCore.Signal(int, ItemContent)
@@ -77,7 +78,12 @@ class QCompletionPopup(QtW.QListWidget):
             label.setText(text)
             list_widget_item.setData(
                 Qt.ItemDataRole.UserRole,
-                ItemContent(prefix + item, info, cmp.action[_i]),
+                ItemContent(
+                    prefix + item,
+                    info,
+                    cmp.action[_i],
+                    type=cmp.type,
+                ),
             )
 
     def set_row(self, idx: int):
