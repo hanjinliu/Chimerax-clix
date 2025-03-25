@@ -147,6 +147,30 @@ def complete_keyword_value(
             keyword_type=last_annot,
         )
     
+    elif is_target_arg(last_annot):
+        return CompletionState(
+            text=last_word,
+            completions=["a", "c", "r", "s", "b", "p", "f", "m"],
+            command=current_command,
+            info=[
+                colored(f"<i>= {word}</i>", "gray")
+                for word 
+                in ["atoms", "cartoon", "cartoon", "surfaces", "bonds", "pseudobonds", "(filled) rings", "models"]
+            ],
+            type="keyword-value",
+            keyword_type=last_annot,
+        )
+    
+    elif is_colormap(last_annot):
+        return CompletionState(
+            text=last_word,
+            completions=["rainbow", "grayscale", "red-white-blue", "blue-white-red", "cyan-white-maroon"],
+            command=current_command,
+            info=["(<i>colormap</i>)"] * 5,
+            type="keyword-value",
+            keyword_type=last_annot,
+        )
+
     elif is_value_type(last_annot):
         return CompletionState(
             text=last_word,
@@ -301,7 +325,7 @@ def is_onoff(annotation) -> bool:
     return getattr(annotation, "name", "") == "on or off"
 
 def is_noarg(annotation) -> bool:
-    return type(annotation).__name__ == "NoArg"
+    return getattr(annotation, "__name__", "") == "NoArg"
 
 def is_or(annotation) -> bool:
     return type(annotation).__name__ == "Or"
@@ -322,8 +346,8 @@ def to_list_of_str(it: Iterable[Any], startswith: str = "") -> list[str]:
             out.append(str(a))
     return out
 
-def safe_is_subclass(obj, superclass) -> bool:
-    try:
-        return issubclass(obj, superclass)
-    except TypeError:
-        return False
+def is_target_arg(annotation) -> bool:
+    return getattr(annotation, "__name__", "") == "TargetArg"
+
+def is_colormap(annotation) -> bool:
+    return getattr(annotation, "name", "") == "a colormap"
