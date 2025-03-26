@@ -127,7 +127,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         from chimerax.help_viewer import show_url  # type: ignore
             
         if command := self._commands.get(code, None):
-            if out := resolve_cmd_desc(command):
+            if out := resolve_cmd_desc(command, code):
                 if out.url:
                     show_url(self._session, out.url)
             else:
