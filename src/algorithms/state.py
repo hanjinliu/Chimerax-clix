@@ -18,8 +18,12 @@ class CompletionState:
     def __post_init__(self):
         if self.info is None:
             self.info = [""] * len(self.completions)
+        else:
+            assert len(self.info) == len(self.completions)
         if self.action is None:
             self.action = [NoAction()] * len(self.completions)
+        else:
+            assert len(self.action) == len(self.completions)
 
     @classmethod
     def empty(cls) -> CompletionState:
@@ -33,6 +37,7 @@ class Context:
     filter_volume: Callable[[list[ModelType]], list[ModelType]] = lambda x: x
     filter_surface: Callable[[list[ModelType]], list[ModelType]] = lambda x: x
     get_file_open_mode: Callable[[Any], str] = lambda x: "r"
+    run_command: Callable[[str], Any] = lambda x: None
 
     def with_models(self, models: list[ModelType]) -> Context:
         return Context(
@@ -42,4 +47,5 @@ class Context:
             filter_volume=self.filter_volume,
             filter_surface=self.filter_surface,
             get_file_open_mode=self.get_file_open_mode,
+            run_command=self.run_command,
         )

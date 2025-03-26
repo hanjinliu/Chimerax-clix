@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 from qtpy.QtWidgets import QColorDialog, QFileDialog
 
 if TYPE_CHECKING:
-    from ..widgets.cli_widget import QCommandLineEdit
+    from .widgets.cli_widget import QCommandLineEdit
 
 class Action:
     """Action to execute when the user selects the item for completion."""
