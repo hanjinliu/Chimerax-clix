@@ -37,6 +37,7 @@ class Context:
     filter_volume: Callable[[list[ModelType]], list[ModelType]] = lambda x: x
     filter_surface: Callable[[list[ModelType]], list[ModelType]] = lambda x: x
     get_file_open_mode: Callable[[Any], str] = lambda x: "r"
+    get_file_list: Callable[[], list[str]] = lambda: []
     run_command: Callable[[str], Any] = lambda x: None
 
     def with_models(self, models: list[ModelType]) -> Context:
@@ -47,5 +48,6 @@ class Context:
             filter_volume=self.filter_volume,
             filter_surface=self.filter_surface,
             get_file_open_mode=self.get_file_open_mode,
+            get_file_list=get_file_list,
             run_command=self.run_command,
         )

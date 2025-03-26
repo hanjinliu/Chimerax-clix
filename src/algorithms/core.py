@@ -6,8 +6,7 @@ from typing import Any, Iterable
 
 from .state import CompletionState
 from ..action import NoAction, SelectColor, SelectFile
-from ..types import resolve_cmd_desc, WordInfo, CmdDesc
-from ..algorithms import filepath
+from ..types import resolve_cmd_desc
 from .action import NoAction, TypeErrorAction, SelectColor, SelectFile
 from .filepath import complete_path
 from .state import CompletionState, Context

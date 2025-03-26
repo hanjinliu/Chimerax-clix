@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Any
+from enum import Enum
 from dataclasses import dataclass, field
 
 @dataclass
@@ -64,3 +65,8 @@ def resolve_cmd_desc(winfo: WordInfo, command_name: str) -> CmdDesc | None:
         _ALWAYS_DEFERRED.add(command_name)
         return None
     return winfo.cmd_desc
+
+class Mode(Enum):
+    CLI = "cli"
+    PALETTE = "palette"
+    RECENT = "recent"

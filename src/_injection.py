@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from functools import cache
+from typing import Callable
 from chimerax.core.commands import run, list_selectors  # type: ignore
 from chimerax.map import Volume, VolumeSurface  # type: ignore
 from chimerax.core.commands import OpenFileNameArg, OpenFileNamesArg, SaveFileNameArg, OpenFolderNameArg, SaveFolderNameArg  # type: ignore
+from chimerax.core.filehistory import file_history  # type: ignore
 from .types import ModelType
 from ._utils import safe_is_subclass
 
@@ -20,6 +22,12 @@ def chimerax_filter_volume(models) -> list[ModelType]:
 
 def chimerax_filter_surface(models) -> list[ModelType]:
     return [m for m in models if isinstance(m, VolumeSurface)]
+
+def chimerax_file_history(session) -> Callable[[], list[str]]:
+    def _get_hist():
+        hist = file_history(session)
+        return [fs.path for fs in hist.files]
+    return _get_hist
 
 def chimerax_get_mode(last_annot: type) -> str:
     if safe_is_subclass(last_annot, OpenFileNameArg):

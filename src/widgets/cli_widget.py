@@ -3,20 +3,16 @@ from enum import Enum
 
 from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
-from ..types import ModelType, WordInfo, resolve_cmd_desc
-from .._history import HistoryManager
-from ..algorithms import complete_path, CompletionState, Context, complete_keyword_name_or_value
 
-from .consts import _FONT, TOOLTIP_FOR_AMINO_ACID
-from .popups import ItemContent, QCompletionPopup, QCommandPalettePopup, QTooltipPopup, QSelectablePopup
+from .consts import _FONT
+from .popups import QCompletionPopup, QCommandPalettePopup, QRecentFilePopup, QTooltipPopup, QSelectablePopup
 from .highlighter import QCommandHighlighter
+from ..types import WordInfo, resolve_cmd_desc, Mode
+from .._history import HistoryManager
+from ..algorithms import CompletionState, Context
 from .._utils import colored
 from .._preference import Preference
 from .. import _injection as _inj
-
-class Mode(Enum):
-    CLI = "cli"
-    PALETTE = "palette"
 
 class QSuggestionLabel(QtW.QLabel):
     """Label widget for inline suggestion."""
@@ -43,8 +39,11 @@ class QCommandLineEdit(QtW.QTextEdit):
         self._commands = commands
         self._mode = Mode.CLI
         self._current_completion_state = CompletionState.empty()
-        self._list_widget = self._create_list_widget()
-        self._command_palette_widget = self._create_command_palette_widget()
+        self._list_widgets: dict[Mode, QSelectablePopup] = {
+            Mode.CLI: QCompletionPopup(self),
+            Mode.PALETTE: QCommandPalettePopup(self),
+            Mode.RECENT: QRecentFilePopup(self),
+        }
         self._tooltip_widget = self._create_tooltip_widget()
         self._inline_suggestion_widget = self._create_suggestion_widget()
         self._session = session
@@ -61,29 +60,40 @@ class QCommandLineEdit(QtW.QTextEdit):
             filter_volume=_inj.chimerax_filter_volume,
             filter_surface=_inj.chimerax_filter_surface,
             get_file_open_mode=_inj.chimerax_get_mode,
+            get_file_list=_inj.chimerax_file_history(self._session),
             run_command=_inj.chimerax_run(self._session),
         )
 
     def _update_completion_state(self, allow_auto: bool = False) -> bool:
-        plain_text =self.toPlainText()
+        plain_text = self.toPlainText()
+        old_mode = self._mode
         if plain_text.startswith(">"):
             self._mode = Mode.PALETTE
+        elif plain_text.startswith("/"):
+            self._mode = Mode.RECENT
         else:
             self._mode = Mode.CLI
+
+        # need to rehighlight if the mode is changed
+        if old_mode is not self._mode:
+            self._highlighter.rehighlight()
         
+        list_widget = self._current_popup()
         if self._mode is Mode.PALETTE:
             self._current_completion_state = CompletionState(plain_text[1:], [])
-            return True
+        elif self._mode is Mode.RECENT:
+            self._current_completion_state = CompletionState(plain_text[1:], [])
         else:
+            assert isinstance(list_widget, QCompletionPopup)
             cursor = self.textCursor()
             cursor.movePosition(QtGui.QTextCursor.MoveOperation.StartOfLine, QtGui.QTextCursor.MoveMode.KeepAnchor)
-            self._current_completion_state = self._get_completion_list(cursor.selectedText())
+            self._current_completion_state = list_widget._get_completion_list(cursor.selectedText())
             if len(self._current_completion_state.completions) == 0:
                 return False
             if len(self._current_completion_state.completions) == 1 and allow_auto:
                 state = self._current_completion_state
-                self._list_widget.complete_with(state.completions[0], state.type)
-            return True
+                list_widget.complete_with(state.completions[0], state.type)
+        return True
 
     def text(self) -> str:
         text = self.toPlainText()
@@ -128,107 +138,26 @@ class QCommandLineEdit(QtW.QTextEdit):
 
     def _adjust_tooltip_for_list(self, idx: int):
         """Move the tooltip popup next to the list widget."""
-        if self._mode is Mode.PALETTE:
+        if self._mode is not Mode.CLI:
             return None
-        item_rect = self._list_widget.visualItemRect(self._list_widget.item(idx))
-        pos = self._list_widget.mapToGlobal(item_rect.topRight())
+        list_widget = self._current_popup()
+        item_rect = list_widget.visualItemRect(list_widget.item(idx))
+        pos = list_widget.mapToGlobal(item_rect.topRight())
         if _is_too_bottom(pos.y() + self._tooltip_widget.height()):
-            pos = self._list_widget.mapToGlobal(
+            pos = list_widget.mapToGlobal(
                 item_rect.bottomRight() - QtCore.QPoint(0, self._tooltip_widget.height())
             )
         pos.setX(pos.x() + 10)
         self._tooltip_widget.move(pos)
 
-    def _list_selection_changed(self, idx: int, content: ItemContent):
-        """Callback of the change in the current list widget index."""
-        if not self._list_widget.isVisible():
-            return
-        text = content.text
-        if self._current_completion_state.type in ("residue", "model,residue"):
-            # set residue name
-            tooltip = TOOLTIP_FOR_AMINO_ACID.get(text.split(":")[-1], "")
-            if tooltip:
-                self._tooltip_widget.setText(tooltip)
-                # adjust the height of the tooltip
-                metrics = QtGui.QFontMetrics(self._tooltip_widget.font())
-                height = min(280, metrics.height() * (tooltip.count("\n") + 1) + 6)
-                self._tooltip_widget.setFixedHeight(height)
-                # move the tooltip
-                self._try_show_tooltip_widget()
-        elif self._current_completion_state.type in ("keyword", "selector"):
-            pass
-        elif winfo := self._commands.get(text, None):
-            self._adjust_tooltip_for_list(idx)
-            self._tooltip_widget.setWordInfo(winfo, text)
-            self._try_show_tooltip_widget()
+    def _show_popup_widget(self):
+        list_widget = self._current_popup()
+        for each_widget in self._list_widgets.values():
+            if each_widget is not list_widget:
+                each_widget.hide()
+            else:
+                each_widget.try_show_me()
 
-    def _current_and_matched_commands(self, text: str) -> tuple[str, list[str]]:
-        matched_commands: list[str] = []
-        current_command: str | None = None
-        text_lstrip = text.lstrip()
-        text_strip = text.strip()
-        for command_name in self._commands.keys():
-            if command_name.startswith(text_lstrip):
-                # if `text` is "toolshed", add
-                #   toolshed list
-                #   toolshed install ...
-                # to `matched_commands`
-                matched_commands.append(command_name)
-            elif text_strip == command_name or text_strip.startswith(command_name.rstrip() + " "):
-                current_command = command_name
-        return current_command, matched_commands
-
-    def _get_completion_list(self, text: str) -> CompletionState:
-        if text == "" or text.startswith("#"):
-            return CompletionState(text, [], type="empty-text")
-
-        # command completion
-        current_command, matched_commands = self._current_and_matched_commands(text)
-        if len(matched_commands) > 0:
-            if len(matched_commands) == 1 and matched_commands[0] == text.strip():
-                # not need to show the completion list
-                pass
-            elif " " not in text:
-                # if `matched_commands` is
-                #   toolshed list
-                #   toolshed install
-                # then `all_commands` is
-                #   toolshed
-                #   toolshed list
-                #   toolshed install
-                all_commands: dict[str, None] = {}  # ordered set
-                for cmd in matched_commands:
-                    all_commands[cmd.split(" ")[0]] = None
-                for cmd in matched_commands:
-                    all_commands[cmd] = None
-                matched_commands = list(all_commands.keys())
-            return CompletionState(text, matched_commands, current_command, type="command")
-    
-        # attribute completion
-        *pref, last_word = text.rsplit(" ")
-        if pref == []:
-            return CompletionState(text, [], current_command)
-
-        cmd = current_command or self._current_completion_state.command
-        args = pref[cmd.count(" ") + 1:]
-        if winfo := self._commands.get(cmd, None):
-            # command keyword name/value completion
-            if state := complete_keyword_name_or_value(
-                args=args,
-                last_word=last_word,
-                current_command=current_command,
-                text=text,
-                context=self.get_context(winfo),
-            ):
-                # TODO: don't show keywords that are already in the command line
-                return state
-
-        # path completion
-        if state := complete_path(last_word, current_command):
-            return state
-
-        return CompletionState(text, [], current_command)
-   
     def _on_text_changed(self):
         self._inline_suggestion_widget.hide()
         # resize the widget
@@ -236,16 +165,11 @@ class QCommandLineEdit(QtW.QTextEdit):
 
         # look for the completion
         self._update_completion_state(False)
-        if self._mode is Mode.PALETTE:
-            self._try_show_command_palette_widget()
-            if self._command_palette_widget.isVisible():
-                self._command_palette_widget.setCurrentRow(0)
-            if self._command_palette_widget.count() > 0:
-                self._command_palette_widget.set_row(0)
-        else:
-            self._try_show_list_widget()
-            if self._list_widget.isVisible():
-                self._list_widget.setCurrentRow(0)
+        list_widget = self._current_popup()
+        self._show_popup_widget()
+        if self._mode is Mode.CLI:
+            if list_widget.isVisible():
+                list_widget.setCurrentRow(0)
 
             # if needed, show/hide the tooltip widget
             if self._current_completion_state.command is None:
@@ -259,8 +183,8 @@ class QCommandLineEdit(QtW.QTextEdit):
                 self._tooltip_widget.setWordInfo(cmd, name)
                 self._try_show_tooltip_widget()
         
-            if self._list_widget.count() > 0:
-                self._list_widget.set_row(0)
+            if list_widget.count() > 0:
+                list_widget.set_row(0)
             
             # one-line suggestion
             if not self._dont_need_inline_suggestion:
@@ -303,38 +227,6 @@ class QCommandLineEdit(QtW.QTextEdit):
         self._close_popups()
         return True
 
-    def _try_show_list_widget(self):
-        self._command_palette_widget.hide()
-        self._update_completion_state(allow_auto=False)
-        items = self._current_completion_state.completions
-        
-        # if nothing to show, do not show the list
-        if len(items) == 0:
-            self._list_widget.hide()
-            return
-        
-        # if the next character exists and is not a space, do not show the list
-        _cursor = self.textCursor()
-        if not _cursor.atEnd():
-            _cursor.movePosition(
-                QtGui.QTextCursor.MoveOperation.Right,
-                QtGui.QTextCursor.MoveMode.KeepAnchor
-            )
-            if not _cursor.selectedText().isspace():
-                self._list_widget.hide()
-                return
-        
-        self._list_widget.add_items_with_highlight(self._current_completion_state)
-        self._optimize_selectable_popup_geometry(self._list_widget)
-        return None
-    
-    def _try_show_command_palette_widget(self):
-        self._list_widget.hide()
-        self._update_completion_state(allow_auto=False)
-        self._command_palette_widget.add_items_with_highlight(self._current_completion_state)
-        self._optimize_selectable_popup_geometry(self._command_palette_widget)
-        return None
-    
     def _optimize_selectable_popup_geometry(self, popup: QSelectablePopup):
         popup.resizeForContents()
         if not popup.isVisible():
@@ -348,6 +240,7 @@ class QCommandLineEdit(QtW.QTextEdit):
     
     def _try_show_tooltip_widget(self):
         tooltip = self._tooltip_widget.toPlainText()
+        list_widget = self._current_popup()
         if (
             not self._tooltip_widget.isVisible()
             and tooltip != ""
@@ -360,9 +253,9 @@ class QCommandLineEdit(QtW.QTextEdit):
             self._tooltip_widget.hide()
         
         if self._tooltip_widget.isVisible():
-            if self._list_widget.isVisible():
+            if list_widget.isVisible():
                 # show next to the cursor
-                self._adjust_tooltip_for_list(self._list_widget.currentRow())
+                self._adjust_tooltip_for_list(list_widget.currentRow())
             else:
                 # show beside the completion list
                 _height = self._tooltip_widget.height()
@@ -423,16 +316,17 @@ class QCommandLineEdit(QtW.QTextEdit):
         return done
 
     def _event_tab(self, event: QtGui.QKeyEvent):
-        if self._mode is Mode.PALETTE:
-            if self._command_palette_widget.isVisible():
-                self._command_palette_widget.goto_next()
-        else:
-            if self._list_widget.isVisible():
-                self._list_widget.exec_current_item()
+        list_widget = self._current_popup()
+        if self._mode is Mode.CLI:
+            if list_widget.isVisible():
+                list_widget.exec_current_item()
             elif not self._update_completion_state(True):
                 pass
             else:
-                self._try_show_list_widget()
+                self._show_popup_widget()
+        else:
+            if list_widget.isVisible():
+                list_widget.goto_next()
         return True
     
     def _event_paste(self, event: QtGui.QKeyEvent):
@@ -451,11 +345,11 @@ class QCommandLineEdit(QtW.QTextEdit):
 
     def _event_down(self, event: QtGui.QKeyEvent):
         self._dont_need_inline_suggestion = True
-        if self._current_selectable_popup().isVisible():
+        if self._current_popup().isVisible():
             if event.modifiers() == Qt.KeyboardModifier.NoModifier:
-                self._current_selectable_popup().goto_next()
+                self._current_popup().goto_next()
             elif event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-                self._current_selectable_popup().goto_last()
+                self._current_popup().goto_last()
             else:
                 return super().event(event)
             return True
@@ -473,19 +367,19 @@ class QCommandLineEdit(QtW.QTextEdit):
     def _event_page_down(self, event: QtGui.QKeyEvent):
         self._inline_suggestion_widget.hide()
         self._dont_need_inline_suggestion = True
-        if self._current_selectable_popup().isVisible():
-            self._current_selectable_popup().goto_next_page()
+        if self._current_popup().isVisible():
+            self._current_popup().goto_next_page()
             return True
         self._close_tooltip_and_list()
     
     def _event_up(self, event: QtGui.QKeyEvent):
         self._inline_suggestion_widget.hide()
         self._dont_need_inline_suggestion = True
-        if self._current_selectable_popup().isVisible():
+        if self._current_popup().isVisible():
             if event.modifiers() == Qt.KeyboardModifier.NoModifier:
-                self._current_selectable_popup().goto_previous()
+                self._current_popup().goto_previous()
             elif event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-                self._current_selectable_popup().goto_first()
+                self._current_popup().goto_first()
             else:
                 return super().event(event)
             return True
@@ -500,8 +394,8 @@ class QCommandLineEdit(QtW.QTextEdit):
     def _event_page_up(self, event: QtGui.QKeyEvent):
         self._inline_suggestion_widget.hide()
         self._dont_need_inline_suggestion = True
-        if self._current_selectable_popup().isVisible():
-            self._current_selectable_popup().goto_previous_page()
+        if self._current_popup().isVisible():
+            self._current_popup().goto_previous_page()
             return True
         self._close_tooltip_and_list()
         return False
@@ -523,13 +417,14 @@ class QCommandLineEdit(QtW.QTextEdit):
 
     def _event_return(self, event: QtGui.QKeyEvent):
         if event.modifiers() == Qt.KeyboardModifier.NoModifier:
-            if self._mode is Mode.PALETTE:
-                self._command_palette_widget.exec_current_item()
-            else:
-                if self._list_widget.isVisible() and self._preference.enter_completion:
-                    self._list_widget.exec_current_item()
+            list_widget = self._current_popup()
+            if self._mode is Mode.CLI:
+                if list_widget.isVisible() and self._preference.enter_completion:
+                    list_widget.exec_current_item()
                 else:
                     self.run_command()
+            else:
+                list_widget.exec_current_item()
             return True
         elif event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             self.insertPlainText("\n")
@@ -541,8 +436,7 @@ class QCommandLineEdit(QtW.QTextEdit):
     
     def _event_escape(self, event: QtGui.QKeyEvent):
         if (
-            self._list_widget.isVisible()
-            or self._command_palette_widget.isVisible()
+            any(w.isVisible() for w in self._list_widgets.values())
             or self._tooltip_widget.isVisible()
         ):
             self._close_popups()
@@ -551,10 +445,8 @@ class QCommandLineEdit(QtW.QTextEdit):
             HistoryManager.instance().init_iterator()
         return True
     
-    def _current_selectable_popup(self) -> QSelectablePopup:
-        if self._mode is Mode.PALETTE:
-            return self._command_palette_widget
-        return self._list_widget
+    def _current_popup(self) -> QSelectablePopup:
+        return self._list_widgets[self._mode]
         
     def event(self, event: QtCore.QEvent):
         if event.type() == QtCore.QEvent.Type.KeyPress:
@@ -592,22 +484,8 @@ class QCommandLineEdit(QtW.QTextEdit):
 
     def _close_tooltip_and_list(self):
         self._tooltip_widget.hide()
-        self._list_widget.hide()
-        self._command_palette_widget.hide()
-
-    ### Widget construction ###
-    def _create_list_widget(self):
-        list_widget = QCompletionPopup()
-        list_widget.setParent(self, Qt.WindowType.ToolTip)
-        list_widget.setFont(self.font())
-        list_widget.changed.connect(self._list_selection_changed)
-        return list_widget
-    
-    def _create_command_palette_widget(self):
-        palette_widget = QCommandPalettePopup()
-        palette_widget.setParent(self, Qt.WindowType.ToolTip)
-        palette_widget.setFont(self.font())
-        return palette_widget
+        for widget in self._list_widgets.values():
+            widget.hide()
 
     def _create_tooltip_widget(self):
         tooltip_widget = QTooltipPopup()
