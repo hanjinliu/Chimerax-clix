@@ -65,7 +65,7 @@ class QCommandHighlighter(QtGui.QSyntaxHighlighter):
         if cmd is None:
             return False
         winfo = self._parent._commands[cmd]
-        cmd_desc = resolve_cmd_desc(winfo)
+        cmd_desc = resolve_cmd_desc(winfo, cmd)
         if cmd_desc is None:
             return False
         return word in cmd_desc._keyword.keys()

@@ -19,3 +19,9 @@ def html_to_rgba(code: str) -> tuple[float, float, float, float]:
         code = "".join(c * 2 for c in code)
     r, g, b = int(code[:2], 16), int(code[2:4], 16), int(code[4:], 16)
     return r / 255, g / 255, b / 255, 1.0
+
+def safe_is_subclass(obj, superclass) -> bool:
+    try:
+        return issubclass(obj, superclass)
+    except TypeError:
+        return False

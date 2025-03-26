@@ -1,18 +1,20 @@
 from __future__ import annotations
 
+from functools import cache
+from pathlib import Path
+from typing import Callable
 from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
-from ..types import WordInfo, resolve_cmd_desc
+from ..types import ModelType, WordInfo, resolve_cmd_desc
 from .._history import HistoryManager
-from ..completion import (
-    CompletionState, complete_path, complete_keyword_name_or_value, complete_model, 
-    complete_chain, complete_residue, complete_atom
-)
-from chimerax.core.commands import run  # type: ignore
+from ..algorithms import complete_path, CompletionState, Context, complete_keyword_name_or_value
+from chimerax.core.commands import run, list_selectors  # type: ignore
+from chimerax.map import Volume, VolumeSurface  # type: ignore
+from chimerax.core.commands import OpenFileNameArg, OpenFileNamesArg, SaveFileNameArg, OpenFolderNameArg, SaveFolderNameArg  # type: ignore
 from .consts import _FONT, TOOLTIP_FOR_AMINO_ACID
 from .popups import ItemContent, QCompletionPopup, QTooltipPopup
 from .highlighter import QCommandHighlighter
-from .._utils import colored
+from .._utils import colored, safe_is_subclass
 from .._preference import Preference
 
 class QSuggestionLabel(QtW.QLabel):
@@ -27,6 +29,33 @@ class QSuggestionLabel(QtW.QLabel):
     def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
         self.clicked.emit()
         return super().mousePressEvent(event)
+
+@cache
+def _chimerax_selectors() -> list[str]:
+    """Iterate over all selectors available in ChimeraX.
+    
+    This method excludes the atoms and ion groups to avoid too many completions.
+    """
+    return [a for a in list_selectors() if a[0] == a[0].lower()]
+
+def _chimerax_filter_volume(models) -> list[ModelType]:
+    return [m for m in models if isinstance(m, Volume)]
+
+def _chimerax_filter_surface(models) -> list[ModelType]:
+    return [m for m in models if isinstance(m, VolumeSurface)]
+
+def _chimerax_get_mode(last_annot: type) -> str:
+    if safe_is_subclass(last_annot, OpenFileNameArg):
+        mode = "r"
+    elif safe_is_subclass(last_annot, OpenFileNamesArg):
+        mode = "rm"
+    elif safe_is_subclass(last_annot, SaveFileNameArg) or safe_is_subclass(last_annot, SaveFolderNameArg):
+        mode = "w"
+    elif safe_is_subclass(last_annot, OpenFolderNameArg):
+        mode = "d"
+    else:
+        mode = "r"  # never happens
+    return mode
 
 class QCommandLineEdit(QtW.QTextEdit):
     def __init__(self, commands: dict[str, WordInfo], session, preference: Preference):
@@ -45,6 +74,16 @@ class QCommandLineEdit(QtW.QTextEdit):
         self.set_height_for_block_counts()
         self._dont_need_inline_suggestion = False
         self._preference = preference
+    
+    def get_context(self, winfo: WordInfo) -> Context:
+        return Context(
+            models=self._session.models.list(),
+            selectors=_chimerax_selectors(),
+            wordinfo=winfo,
+            filter_volume=_chimerax_filter_volume,
+            filter_surface=_chimerax_filter_surface,
+            get_file_open_mode=_chimerax_get_mode,
+        )
 
     def _update_completion_state(self, allow_auto: bool = False) -> bool:
         cursor = self.textCursor()
@@ -53,7 +92,8 @@ class QCommandLineEdit(QtW.QTextEdit):
         if len(self._current_completion_state.completions) == 0:
             return False
         if len(self._current_completion_state.completions) == 1 and allow_auto:
-            self._complete_with(self._current_completion_state.completions[0])
+            state = self._current_completion_state
+            self._complete_with(state.completions[0], state.type)
         return True
 
     def text(self) -> str:
@@ -87,7 +127,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         from chimerax.help_viewer import show_url  # type: ignore
             
         if command := self._commands.get(code, None):
-            if out := resolve_cmd_desc(command):
+            if out := resolve_cmd_desc(command, code):
                 if out.url:
                     show_url(self._session, out.url)
             else:
@@ -208,19 +248,19 @@ class QCommandLineEdit(QtW.QTextEdit):
         *pref, last_word = text.rsplit(" ")
         if pref == []:
             return CompletionState(text, [], current_command)
-        if last_word.startswith("#"):
-            return complete_model(self._session.models.list(), last_word, current_command)
-        if last_word.startswith("/"):
-            return complete_chain(self._session.models.list(), last_word, current_command)
-        if last_word.startswith(":"):
-            return complete_residue(self._session.models.list(), last_word, current_command)
-        if last_word.startswith("@"):
-            return complete_atom(self._session, last_word, current_command)
 
         cmd = current_command or self._current_completion_state.command
+        args = pref[cmd.count(" ") + 1:]
         if winfo := self._commands.get(cmd, None):
             # command keyword name/value completion
-            if state := complete_keyword_name_or_value(winfo, pref, last_word, current_command, text):
+            if state := complete_keyword_name_or_value(
+                args=args,
+                last_word=last_word,
+                current_command=current_command,
+                text=text,
+                context=self.get_context(winfo),
+            ):
+                # TODO: don't show keywords that are already in the command line
                 return state
 
         # path completion
@@ -333,7 +373,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         if (
             not self._tooltip_widget.isVisible()
             and tooltip != ""
-            and self._current_completion_state.type != "path"
+            and "path" not in self._current_completion_state.type.split(",")
         ):
             # show tooltip because there's something to show
             self._tooltip_widget.show()
@@ -354,9 +394,13 @@ class QCommandLineEdit(QtW.QTextEdit):
                 self._tooltip_widget.move(pos)
         return None
 
-    def _complete_with(self, comp: str):
-        _n = len(self._current_completion_state.text)
-        self.insertPlainText(comp[_n:])
+    def _complete_with(self, comp: str, typ: str):
+        if "path" in typ.split(","):
+            _n = len(self._current_completion_state.text.rsplit("/", 1)[-1].rsplit("\\", 1)[-1])
+        else:
+            _n = len(self._current_completion_state.text)
+        text_to_comp = comp[_n:]
+        self.insertPlainText(text_to_comp)
         self._update_completion_state(False)
         self._close_popups()
         return None
@@ -554,7 +598,7 @@ class QCommandLineEdit(QtW.QTextEdit):
 
     def _complete_with_current_item(self):
         comp = self._list_widget.current_item_content()
-        self._complete_with(comp.text)
+        self._complete_with(comp.text, comp.type)
         comp.action.execute(self)
 
     def focusOutEvent(self, a0: QtGui.QFocusEvent) -> None:

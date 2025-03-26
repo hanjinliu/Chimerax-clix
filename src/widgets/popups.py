@@ -7,19 +7,20 @@ from qtpy.QtCore import Qt
 from html import escape
 
 from ..types import WordInfo, resolve_cmd_desc
-from ..action import Action, CommandPaletteAction
+from ..algorithms.action import Action, CommandPaletteAction
 from .._preference import load_preference
 from .._utils import colored
 
 if TYPE_CHECKING:
     from .cli_widget import QCommandLineEdit
-    from ..completion import CompletionState
+    from ..algorithms import CompletionState
 
 @dataclass
 class ItemContent:
     text: str
     info: str
     action: Action
+    type: str
 
 class QCompletionPopup(QtW.QListWidget):
     changed = QtCore.Signal(int, ItemContent)
@@ -60,6 +61,7 @@ class QCompletionPopup(QtW.QListWidget):
         for _ in range(self.count() - len(cmp.completions)):
             self.takeItem(0)
 
+<<<<<<< HEAD
         if cmp.type == "command-palette":
             for _i, item in enumerate(cmp.completions):
                 if not isinstance(action := cmp.action[_i], CommandPaletteAction):
@@ -92,6 +94,32 @@ class QCompletionPopup(QtW.QListWidget):
                     Qt.ItemDataRole.UserRole,
                     ItemContent(prefix + item, info, cmp.action[_i]),
                 )
+=======
+        for _i, item in enumerate(cmp.completions):
+            if item.startswith(prefix):
+                prefix, item = item[:len(prefix)], item[len(prefix):]
+            else:
+                prefix = ""
+            if prefix:
+                text = f"<b>{colored(prefix, color_theme.matched)}</b>{item}"
+            else:
+                text = item
+            info = cmp.info[_i]
+            if info:
+                text += f" {info}"
+            list_widget_item = self.item(_i)
+            label = self.itemWidget(list_widget_item)
+            label.setText(text)
+            list_widget_item.setData(
+                Qt.ItemDataRole.UserRole,
+                ItemContent(
+                    prefix + item,
+                    info,
+                    cmp.action[_i],
+                    type=cmp.type,
+                ),
+            )
+>>>>>>> main
 
     def set_row(self, idx: int):
         self.setCurrentRow(idx)
@@ -133,7 +161,7 @@ class QTooltipPopup(QtW.QTextEdit):
         self.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
     
     def setWordInfo(self, word_info: WordInfo, command_name: str):
-        cmd_desc = resolve_cmd_desc(word_info)
+        cmd_desc = resolve_cmd_desc(word_info, command_name)
         color_theme = load_preference().color_theme
         if cmd_desc is None:
             self.setText("")
