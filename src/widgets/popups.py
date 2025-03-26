@@ -126,7 +126,7 @@ class QTooltipPopup(QtW.QTextEdit):
         self.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
     
     def setWordInfo(self, word_info: WordInfo, command_name: str):
-        cmd_desc = resolve_cmd_desc(word_info)
+        cmd_desc = resolve_cmd_desc(word_info, command_name)
         color_theme = load_preference().color_theme
         if cmd_desc is None:
             self.setText("")

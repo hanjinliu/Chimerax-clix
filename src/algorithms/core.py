@@ -35,7 +35,7 @@ def complete_keyword_name_or_value(
     text : str
         The entire command string
     """
-    cmd_desc = resolve_cmd_desc(context.wordinfo)
+    cmd_desc = resolve_cmd_desc(context.wordinfo, current_command)
     if cmd_desc is None:
         return CompletionState(text, [], current_command)
 
@@ -279,7 +279,7 @@ def list_keywords(
     context: Context,
 ) -> CompletionState | None:
     comp_list: list[str] = []
-    cmd_desc = resolve_cmd_desc(context.wordinfo)
+    cmd_desc = resolve_cmd_desc(context.wordinfo, current_command)
     keywords = cmd_desc._keyword.copy()
     for _k in cmd_desc._optional.keys():
         if _k not in keywords:

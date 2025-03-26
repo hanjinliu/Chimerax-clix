@@ -50,17 +50,17 @@ class ChainType:
     """Fake chain type"""
     chain_id: str
 
-_ALWAYS_DEFERRED: set[WordInfo] = set()
+_ALWAYS_DEFERRED = {"kvfinder"}
 
-def resolve_cmd_desc(winfo: WordInfo) -> CmdDesc | None:
+def resolve_cmd_desc(winfo: WordInfo, command_name: str) -> CmdDesc | None:
     """Resolve the command description"""
     if winfo.cmd_desc is None:
         return None
     if not hasattr(winfo.cmd_desc, "function"):
-        if winfo in _ALWAYS_DEFERRED:
+        if command_name in _ALWAYS_DEFERRED:
             return None
         winfo.cmd_desc.proxy()
     if not hasattr(winfo.cmd_desc, "function"):
-        _ALWAYS_DEFERRED.add(winfo)
+        _ALWAYS_DEFERRED.add(command_name)
         return None
     return winfo.cmd_desc
