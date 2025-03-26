@@ -5,6 +5,10 @@ from typing import Iterable
 def colored(text: str, color: str) -> str:
     return f"<font color=\"{color}\">{text}</font>"
 
+def bold_colored(text: str, color: str) -> str:
+    """Return a bolded and colored HTML text."""
+    return f"<b><font color={color!r}>{text}</font></b>"
+
 
 def rgba_to_html(rgba: Iterable[float]) -> str:
     code = "#" + "".join(hex(int(c * 255))[2:].upper().zfill(2) for c in rgba)

@@ -145,11 +145,14 @@ def complete_keyword_value(
         if last_word and (states := complete_path(last_word, current_command)):
             paths = states.completions
             info = ["(<i>path</i>)"] * len(paths)
+            action = [NoAction()] * len(paths)
         else:
             # empty
+            mode = context.get_file_open_mode(last_annot)
             paths = [""] + [Path.home().as_posix()] + SelectFile.history()
-            info=["<i>Browse ...</i>"] + ["(<i>path</i>)"] * (len(paths) - 1),
-        mode = context.get_file_open_mode(last_annot)
+            npaths = len(paths) - 1
+            info=["<i>Browse ...</i>"] + ["(<i>path</i>)"] * npaths
+            action=[SelectFile(mode=mode)] + [NoAction()] * npaths
         
         return CompletionState(
             text=last_word,
@@ -157,7 +160,7 @@ def complete_keyword_value(
             command=current_command,
             info=info,
             type="keyword-value,path",
-            action=[SelectFile(mode=mode)] + [NoAction()] * len(paths),
+            action=action,
             keyword_type=last_annot,
         )
 
