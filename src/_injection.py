@@ -12,7 +12,7 @@ from chimerax.core.commands import (  # type: ignore
     SaveFolderNameArg
 )
 from chimerax.map import Volume, VolumeSurface  # type: ignore
-from chimerax.core.colors import BuiltinColors  # type: ignore
+from chimerax.core.colors import BuiltinColors, BuiltinColormaps  # type: ignore
 from chimerax.core.filehistory import file_history  # type: ignore
 from .types import ModelType, FileSpec
 from ._utils import safe_is_subclass

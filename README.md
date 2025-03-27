@@ -6,10 +6,14 @@ An intelligent command line interface for ChimeraX.
 
 ## Features
 
-- Command suggestion
-- Command/keyword completion
-- Syntax highlighting
-- Multi-line execution
+|Thumbnail|Features|
+|:-|:-|
+|![](images/clix-chain-suggest.png)|<ul><li>Syntax highlighting</li><li>Suggestions and completions (command, keyword, file path, color, model ID, chain ID and more)</li><li>Inline suggestion of the matched history</li><li>Tooltip for command help</li><li>Multi-line execution</li></ul>|
+|![](images/clix-history-search.png)|Powerful history search|
+|![](images/clix-color-preview.png)|<ul><li>Color preview</li><li>Suggest built-in colors</li></ul>|
+|![](images/clix-action-search.png)|Quick search for application actions|
+|![](images/clix-recent-file.png)|Quick search for the recent files|
+
 
 ## Installation
 
