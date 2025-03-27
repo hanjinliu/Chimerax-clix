@@ -1,10 +1,10 @@
 from __future__ import annotations
-from enum import Enum
 
 from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
 
 from .consts import _FONT
+from ._base import is_too_bottom
 from .popups import QCompletionPopup, QCommandPalettePopup, QRecentFilePopup, QTooltipPopup, QSelectablePopup
 from .highlighter import QCommandHighlighter
 from ..types import WordInfo, resolve_cmd_desc, Mode
@@ -138,22 +138,20 @@ class QCommandLineEdit(QtW.QTextEdit):
 
     def _adjust_tooltip_for_list(self, idx: int):
         """Move the tooltip popup next to the list widget."""
-        if self._mode is not Mode.CLI:
-            return None
         list_widget = self._current_popup()
         item_rect = list_widget.visualItemRect(list_widget.item(idx))
         pos = list_widget.mapToGlobal(item_rect.topRight())
-        if _is_too_bottom(pos.y() + self._tooltip_widget.height()):
+        if is_too_bottom(pos.y() + self._tooltip_widget.height()):
             pos = list_widget.mapToGlobal(
                 item_rect.bottomRight() - QtCore.QPoint(0, self._tooltip_widget.height())
             )
         pos.setX(pos.x() + 10)
         self._tooltip_widget.move(pos)
 
-    def _show_popup_widget(self):
-        list_widget = self._current_popup()
+    def _show_popup_widget(self, popup: QSelectablePopup):
+        """Show specified popup and hide others"""
         for each_widget in self._list_widgets.values():
-            if each_widget is not list_widget:
+            if each_widget is not popup:
                 each_widget.hide()
             else:
                 each_widget.try_show_me()
@@ -166,34 +164,8 @@ class QCommandLineEdit(QtW.QTextEdit):
         # look for the completion
         self._update_completion_state(False)
         list_widget = self._current_popup()
-        self._show_popup_widget()
-        if self._mode is Mode.CLI:
-            if list_widget.isVisible():
-                list_widget.setCurrentRow(0)
-
-            # if needed, show/hide the tooltip widget
-            if self._current_completion_state.command is None:
-                if self._tooltip_widget.isVisible():
-                    self._tooltip_widget.hide()
-            elif self._current_completion_state.type in ("residue", "model,residue"):
-                self._try_show_tooltip_widget()    
-            else:
-                name = self._current_completion_state.command
-                cmd = self._commands[name]
-                self._tooltip_widget.setWordInfo(cmd, name)
-                self._try_show_tooltip_widget()
-        
-            if list_widget.count() > 0:
-                list_widget.set_row(0)
-            
-            # one-line suggestion
-            if not self._dont_need_inline_suggestion:
-                this_line = self.textCursor().block().text()
-                if this_line.startswith("#"):
-                    # comment line does not need suggestion
-                    return None
-                if suggested := HistoryManager.instance().suggest(this_line):
-                    self._show_inline_suggestion(suggested)
+        self._show_popup_widget(list_widget)
+        list_widget.post_show_me()
         return None
     
     def _show_inline_suggestion(self, suggested: str):
@@ -233,38 +205,11 @@ class QCommandLineEdit(QtW.QTextEdit):
             popup.show()
         _height = popup.height()
         pos = self.mapToGlobal(self.cursorRect().bottomLeft())
-        if _is_too_bottom(_height + pos.y()):
+        if is_too_bottom(_height + pos.y()):
             pos = self.mapToGlobal(self.cursorRect().topLeft()) - QtCore.QPoint(0, _height)
         popup.move(pos)
         return None
     
-    def _try_show_tooltip_widget(self):
-        tooltip = self._tooltip_widget.toPlainText()
-        list_widget = self._current_popup()
-        if (
-            not self._tooltip_widget.isVisible()
-            and tooltip != ""
-            and "path" not in self._current_completion_state.type.split(",")
-        ):
-            # show tooltip because there's something to show
-            self._tooltip_widget.show()
-            self.setFocus()
-        elif tooltip == "":
-            self._tooltip_widget.hide()
-        
-        if self._tooltip_widget.isVisible():
-            if list_widget.isVisible():
-                # show next to the cursor
-                self._adjust_tooltip_for_list(list_widget.currentRow())
-            else:
-                # show beside the completion list
-                _height = self._tooltip_widget.height()
-                pos = self.mapToGlobal(self.cursorRect().bottomRight())
-                if _is_too_bottom(pos.y() + _height):
-                    pos = self.mapToGlobal(self.cursorRect().topRight()) - QtCore.QPoint(0, _height)
-                self._tooltip_widget.move(pos)
-        return None
-
     def forwarded_keystroke(self, event: QtGui.QKeyEvent):
         """Forward the key event from the main window."""
         if self._session.ui.key_intercepted(event.key()):
@@ -323,7 +268,7 @@ class QCommandLineEdit(QtW.QTextEdit):
             elif not self._update_completion_state(True):
                 pass
             else:
-                self._show_popup_widget()
+                self._show_popup_widget(list_widget)
         else:
             if list_widget.isVisible():
                 list_widget.goto_next()
@@ -511,10 +456,7 @@ class QCommandLineEdit(QtW.QTextEdit):
             self.setFocus()
             self._close_tooltip_and_list()
         return suggestion_widget
-    
-def _is_too_bottom(pos: int):
-    screen_bottom = QtW.QApplication.primaryScreen().geometry().bottom()
-    return pos > screen_bottom
+
 
 _HIDE_POPUPS = {
     QtCore.QEvent.Type.Move,

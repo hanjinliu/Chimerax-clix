@@ -1,26 +1,24 @@
 from __future__ import annotations
 
 from functools import cache
+import math
 from pathlib import Path
 from typing import Iterator
-from qtpy import QtWidgets as QtW, QtGui
+from qtpy import QtWidgets as QtW, QtGui, QtCore
 from qtpy.QtCore import Qt
 from html import escape
 
 from .consts import TOOLTIP_FOR_AMINO_ACID
-from ._base import QSelectablePopup, ItemContent
-from ..types import WordInfo, resolve_cmd_desc
-from ..algorithms.action import CommandPaletteAction
+from ._base import QSelectablePopup, ItemContent, is_too_bottom
+from .._history import HistoryManager
+from ..types import WordInfo, resolve_cmd_desc, FileSpec
+from ..algorithms.action import CommandPaletteAction, RecentFileAction
 from ..palette import command_palette_actions, color_text_by_match
 from .._preference import load_preference
 from .._utils import colored
 from ..algorithms import complete_path, complete_keyword_name_or_value, CompletionState
 
 class QCompletionPopup(QSelectablePopup):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.changed.connect(self._selection_changed)
-
     def add_items_with_highlight(self, cmp: CompletionState):
         prefix = cmp.text
         color_theme = load_preference(force=False).color_theme
@@ -74,23 +72,55 @@ class QCompletionPopup(QSelectablePopup):
             return
         text = content.text
         parent = self.parentWidget()
+        tooltip_widget = parent._tooltip_widget
         if parent._current_completion_state.type in ("residue", "model,residue"):
             # set residue name
             tooltip = TOOLTIP_FOR_AMINO_ACID.get(text.split(":")[-1], "")
             if tooltip:
-                parent._tooltip_widget.setText(tooltip)
+                tooltip_widget.setText(tooltip)
                 # adjust the height of the tooltip
-                metrics = QtGui.QFontMetrics(parent._tooltip_widget.font())
+                metrics = QtGui.QFontMetrics(tooltip_widget.font())
                 height = min(280, metrics.height() * (tooltip.count("\n") + 1) + 6)
-                parent._tooltip_widget.setFixedHeight(height)
+                tooltip_widget.setFixedHeight(height)
                 # move the tooltip
-                parent._try_show_tooltip_widget()
+                self._try_show_tooltip_widget()
         elif parent._current_completion_state.type in ("keyword", "selector"):
             pass
         elif winfo := parent._commands.get(text, None):
             parent._adjust_tooltip_for_list(idx)
-            parent._tooltip_widget.setWordInfo(winfo, text)
-            parent._try_show_tooltip_widget()
+            tooltip_widget.setWordInfo(winfo, text)
+            self._try_show_tooltip_widget()
+
+    def _try_show_tooltip_widget(self):
+        parent = self.parentWidget()
+        tooltip_widget = parent._tooltip_widget
+        tooltip_widget.setFixedWidth(360)
+        tooltip = tooltip_widget.toPlainText()
+        if (
+            not tooltip_widget.isVisible()
+            and tooltip != ""
+            and "path" not in parent._current_completion_state.type.split(",")
+        ):
+            # show tooltip because there's something to show
+            tooltip_widget.show()
+            parent.setFocus()
+        elif tooltip == "":
+            tooltip_widget.hide()
+        
+        if tooltip_widget.isVisible():
+            if self.isVisible():
+                # show next to the cursor
+                parent._adjust_tooltip_for_list(self.currentRow())
+            else:
+                # show beside the completion list
+                _height = tooltip_widget.height()
+                pos = parent.mapToGlobal(parent.cursorRect().bottomRight())
+                if is_too_bottom(pos.y() + _height):
+                    top_right = parent.mapToGlobal(parent.cursorRect().topRight())
+                    height_vector = QtCore.QPoint(0, _height)
+                    pos = top_right - height_vector
+                tooltip_widget.move(pos)
+        return None
 
     def _get_completion_list(self, text: str) -> CompletionState:
         if text == "" or text.startswith("#"):
@@ -184,6 +214,36 @@ class QCompletionPopup(QSelectablePopup):
         self.add_items_with_highlight(parent._current_completion_state)
         parent._optimize_selectable_popup_geometry(self)
         return None
+    
+    def post_show_me(self):
+        if self.isVisible():
+            self.setCurrentRow(0)
+
+        parent = self.parentWidget()
+        # if needed, show/hide the tooltip widget
+        if parent._current_completion_state.command is None:
+            if parent._tooltip_widget.isVisible():
+                parent._tooltip_widget.hide()
+        elif parent._current_completion_state.type in ("residue", "model,residue"):
+            self._try_show_tooltip_widget()    
+        else:
+            name = parent._current_completion_state.command
+            cmd = parent._commands[name]
+            parent._tooltip_widget.setWordInfo(cmd, name)
+            self._try_show_tooltip_widget()
+    
+        if self.count() > 0:
+            self.set_row(0)
+        
+        # one-line suggestion
+        if not parent._dont_need_inline_suggestion:
+            this_line = parent.textCursor().block().text()
+            if this_line.startswith("#"):
+                # comment line does not need suggestion
+                return None
+            if suggested := HistoryManager.instance().suggest(this_line):
+                parent._show_inline_suggestion(suggested)
+
 
 class QCommandPalettePopup(QSelectablePopup):
     _max_matches = 60
@@ -217,7 +277,7 @@ class QCommandPalettePopup(QSelectablePopup):
         """Iterate over the top hits for the input text"""
         commands: list[tuple[float, CommandPaletteAction]] = []
         for command in self.get_all_commands():
-            score = _match_score(command.desc, input_text)
+            score = self._match_score(command.desc, input_text)
             if score > 0.0:
                 commands.append((score, command))
         commands.sort(key=lambda x: x[0], reverse=True)
@@ -233,34 +293,57 @@ class QCommandPalettePopup(QSelectablePopup):
     def get_all_commands(self) -> list[CommandPaletteAction]:
         return command_palette_actions(self.session().ui.main_window)
 
+    def _match_score(self, command_text: str, input_text: str) -> float:
+        """Return a match score (between 0 and 1) for the input text."""
+        name = command_text.lower()
+        if all(word in name for word in input_text.lower().split(" ")):
+            return 1.0
+        if len(input_text) < 4 and all(char in name for char in input_text.lower()):
+            return 0.7
+        return 0.0
+
 
 class QRecentFilePopup(QSelectablePopup):
     def exec_current_item(self):
         self.parentWidget()._close_popups()
-        path = self.current_item_content().text
-        self.parentWidget().get_context(None).run_command(f"open {path}")
+        content = self.current_item_content()
+        content.action.execute(self.parentWidget())
     
     def add_items_with_highlight(self, cmp: CompletionState) -> None:
         match_color = load_preference().color_theme.matched
         count_before = self.count()
         row = 0
-        for row, file in enumerate(self.iter_matched_files(cmp.text)):
+        for row, spec in enumerate(self.iter_matched_files(cmp.text)):
             item, current_label = self.prep_item(row, count_before)
             item.setData(
                 Qt.ItemDataRole.UserRole,
-                ItemContent(file, "", None, "file"),
+                ItemContent(spec.path, "", RecentFileAction(spec), "file"),
             )
-            file_path = Path(file)
+            file_path = Path(spec.path)
             label_txt_path = file_path.parent / color_text_by_match(
                 cmp.text, file_path.name, match_color
             )
             current_label.setText(label_txt_path.as_posix())
             row = row + 1
         
-        for i in range(row, count_before):
+        for _ in range(row, count_before):
             self.takeItem(row)
     
-    def iter_matched_files(self, input_text: str):
+    def _selection_changed(self, idx: int, content: ItemContent):
+        parent = self.parentWidget()
+        tooltip_widget = parent._tooltip_widget
+        action = content.action
+        if isinstance(action, RecentFileAction):
+            tooltip_widget.setBase64Image(action.fs.image)
+    
+    def _try_show_tooltip_widget(self):
+        parent = self.parentWidget()
+        parent._tooltip_widget.show()
+        if self.isVisible():
+            # show next to the cursor
+            parent._adjust_tooltip_for_list(self.currentRow())
+
+    def iter_matched_files(self, input_text: str) -> Iterator[FileSpec]:
         ctx = self.parentWidget().get_context(None)
         files = ctx.get_file_list()
         input_text = input_text.strip().lower()
@@ -268,18 +351,15 @@ class QRecentFilePopup(QSelectablePopup):
             yield from files[::-1]
         else:
             for file in reversed(files):
-                if input_text in Path(file).name.lower():
+                if input_text in Path(file.path).name.lower():
                     yield file
 
-def _match_score(command_text: str, input_text: str) -> float:
-    """Return a match score (between 0 and 1) for the input text."""
-    name = command_text.lower()
-    if all(word in name for word in input_text.lower().split(" ")):
-        return 1.0
-    if len(input_text) < 4 and all(char in name for char in input_text.lower()):
-        return 0.7
-    return 0.0
-
+    def post_show_me(self):
+        parent = self.parentWidget()
+        action = self.current_item_content().action
+        if isinstance(action, RecentFileAction):
+            self._try_show_tooltip_widget()
+            parent._tooltip_widget.setBase64Image(action.fs.image)
         
 class QTooltipPopup(QtW.QTextEdit):
     def __init__(self, parent=None):
@@ -301,12 +381,12 @@ class QTooltipPopup(QtW.QTextEdit):
         strings.append(f"<br><u>{colored('Arguments', 'gray')}</u>")
         for name, typ in cmd_desc._required.items():
             strings.append(
-                f"<b>{name}</b>: {colored(_as_name(typ), color_theme.type)}"
+                f"<b>{name}</b>: {self._type_to_name(typ, color_theme.type)}"
             )
         # here, some arguments are both optional and keyword
         keywords = cmd_desc._keyword.copy()
         for name, typ in cmd_desc._optional.items():
-            annot = colored(_as_name(typ), color_theme.type)
+            annot = self._type_to_name(typ, color_theme.type)
             if name in keywords:
                 strings.append(f"<b>{name}</b>: {annot} <i>(optional, keyword)</i>")
                 keywords.pop(name)
@@ -314,11 +394,17 @@ class QTooltipPopup(QtW.QTextEdit):
                 strings.append(f"<b>{name}</b>: {annot} <i>(optional)</i>")
         for name, typ in keywords.items():
             strings.append(
-                f"<b>{name}</b>: {colored(_as_name(typ), color_theme.type)} "
+                f"<b>{name}</b>: {self._type_to_name(typ, color_theme.type)} "
                 "<i>(keyword)</i>"
             )
         self.setText("<br>".join(strings))
         return None
+    
+    def setBase64Image(self, base64_image: str):
+        self.setHtml(f'<img src="data:image/png;base64,{base64_image}">')
+        size = self.document().size()
+        length = int(min(size.width(), size.height(), 300)) + 12
+        self.setFixedSize(length, length)
 
-def _as_name(typ):
-    return escape(typ.name)
+    def _type_to_name(self, typ, color):
+        return colored(escape(typ.name), color)

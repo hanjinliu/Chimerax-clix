@@ -29,11 +29,15 @@ class QSelectablePopup(QtW.QListWidget):
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.changed.connect(self._selection_changed)
         self.setStyleSheet("QSelectablePopup::item:selected { background-color: #888888; }")
     
     def _on_item_clicked(self, item: QtW.QListWidgetItem):
         self.setCurrentItem(item)
         self.exec_current_item()
+    
+    def _selection_changed(self, idx: int, content: ItemContent):
+        """Override this method to handle selection changes."""
     
     def exec_current_item(self):
         """Must be implemented by subclasses."""
@@ -121,7 +125,15 @@ class QSelectablePopup(QtW.QListWidget):
         if self.count() > 0:
             self.set_row(0)
         return None
+    
+    def post_show_me(self):
+        pass
 
     if TYPE_CHECKING:
         def itemWidget(self, item: QtW.QListWidgetItem) -> QtW.QLabel | None:
             ...
+
+def is_too_bottom(pos: int) -> bool:
+    """Check if the popup is too low."""
+    screen_bottom = QtW.QApplication.primaryScreen().geometry().bottom()
+    return pos > screen_bottom

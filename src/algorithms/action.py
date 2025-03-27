@@ -1,6 +1,8 @@
 from typing import TYPE_CHECKING
 from qtpy.QtWidgets import QColorDialog, QFileDialog
 
+from ..types import FileSpec
+
 if TYPE_CHECKING:
     from ..widgets.cli_widget import QCommandLineEdit
 
@@ -69,3 +71,11 @@ class CommandPaletteAction(Action):
     def execute(self, widget: "QCommandLineEdit"):
         self.func()
         widget.setText("")
+
+class RecentFileAction(Action):
+    def __init__(self, fs: FileSpec):
+        self.fs = fs
+        
+    def execute(self, widget: "QCommandLineEdit"):
+        ctx = widget.get_context(None)
+        ctx.run_command(self.fs.open_command)
