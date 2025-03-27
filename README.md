@@ -1,10 +1,6 @@
 # CliX
 
-![](image.png)
-
 An intelligent command line interface for ChimeraX.
-
-## Features
 
 |Thumbnail|Features|
 |:-|:-|
