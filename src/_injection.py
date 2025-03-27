@@ -2,9 +2,17 @@ from __future__ import annotations
 
 from functools import cache
 from typing import Callable
-from chimerax.core.commands import run, list_selectors  # type: ignore
+from chimerax.core.commands import (  # type: ignore
+    run,
+    list_selectors,
+    OpenFileNameArg,
+    OpenFileNamesArg,
+    SaveFileNameArg,
+    OpenFolderNameArg,
+    SaveFolderNameArg
+)
 from chimerax.map import Volume, VolumeSurface  # type: ignore
-from chimerax.core.commands import OpenFileNameArg, OpenFileNamesArg, SaveFileNameArg, OpenFolderNameArg, SaveFolderNameArg  # type: ignore
+from chimerax.core.colors import BuiltinColors  # type: ignore
 from chimerax.core.filehistory import file_history  # type: ignore
 from .types import ModelType, FileSpec
 from ._utils import safe_is_subclass
@@ -46,3 +54,11 @@ def chimerax_run(session):
     def _run(line):
         return run(session, line)
     return _run
+
+@cache
+def chimerax_builtin_colors() -> dict[str, str]:
+    out: dict[str, str] = {}
+    for name, color in BuiltinColors.items():
+        if " " not in name:
+            out[name] = color.hex()
+    return out

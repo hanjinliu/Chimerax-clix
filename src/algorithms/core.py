@@ -6,13 +6,12 @@ from typing import Any, Iterable
 
 from .state import CompletionState
 from ..action import NoAction, SelectColor, SelectFile
-from ..types import resolve_cmd_desc
 from .action import NoAction, TypeErrorAction, SelectColor, SelectFile
 from .filepath import complete_path
 from .state import CompletionState, Context
 from .model import complete_model, complete_chain, complete_residue, complete_atom
 from ..types import resolve_cmd_desc
-from .._utils import colored
+from .._utils import colored, is_hex_color
 
 # For types, see https://github.com/RBVI/ChimeraX/tree/develop/src/bundles/core/src/commands
 
@@ -123,20 +122,44 @@ def complete_keyword_value(
             text=last_word,
             completions=valid_values,
             command=current_command,
-            info=["(<i>enum</i>)"] * len(values),
+            info=["(<i>enum</i>)"] * len(valid_values),
             type="keyword-value",
             keyword_type=last_annot,
         )
 
     elif is_color(last_annot):
         color_hist = SelectColor.history()
+        completions = []
+        info = []
+        if last_word == "":
+            completions = [""] + color_hist
+            info = ["<i>Select a color ...</i>"] + [colored("▉", c) for c in color_hist]
+            action = [SelectColor()] + [NoAction()] * len(color_hist)
+        elif last_word.startswith("#"):
+            if len(last_word) < 7:
+                for hex in color_hist:
+                    if hex.startswith(last_word.lower()):
+                        completions.append(hex)
+                        info.append(colored("▉", hex))
+            elif is_hex_color(last_word):
+                completions.append(last_word)
+                info.append(colored("▉", last_word))
+            else:
+                pass
+            action = [NoAction()] * len(completions)
+        else:
+            for name, hex in context.colors.items():
+                if name.startswith(last_word):
+                    completions.append(name)
+                    info.append(colored("▉", hex))
+            action = [NoAction()] * len(completions)
         return CompletionState(
             text=last_word,
-            completions=[""] + color_hist,
+            completions=completions,
             command=current_command,
-            info=["<i>Select a color ...</i>"] + [colored("▉", c) for c in color_hist],
+            info=info,
             type="keyword-value",
-            action=[SelectColor()] + [NoAction()] * len(color_hist),
+            action=action,
             keyword_type=last_annot,
         )
 

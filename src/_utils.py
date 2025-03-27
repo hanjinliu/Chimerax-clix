@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Iterable
+import re
 
 def colored(text: str, color: str) -> str:
     return f"<font color=\"{color}\">{text}</font>"
@@ -9,6 +10,12 @@ def bold_colored(text: str, color: str) -> str:
     """Return a bolded and colored HTML text."""
     return f"<b><font color={color!r}>{text}</font></b>"
 
+def is_hex_color(text: str) -> bool:
+    return (
+        bool(re.match(r"^#[0-9a-fA-F]{6}$", text))
+        or bool(re.match(r"^#[0-9a-fA-F]{3}$", text))
+        or bool(re.match(r"^[0-9a-fA-F]{8}$", text))
+    )
 
 def rgba_to_html(rgba: Iterable[float]) -> str:
     code = "#" + "".join(hex(int(c * 255))[2:].upper().zfill(2) for c in rgba)

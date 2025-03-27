@@ -33,7 +33,7 @@ class SelectColor(Action):
                 self.__class__._history.pop(0)
 
     @classmethod
-    def history(cls):
+    def history(cls) -> list[str]:
         return cls._history.copy()
 
 class SelectFile(Action):
@@ -78,4 +78,5 @@ class RecentFileAction(Action):
         
     def execute(self, widget: "QCommandLineEdit"):
         ctx = widget.get_context(None)
-        ctx.run_command(self.fs.open_command)
+        widget.setText("")
+        ctx.run_command(self.fs.open_command())

@@ -34,7 +34,10 @@ class QCommandLineEdit(QtW.QTextEdit):
         self.setFont(QtGui.QFont(_FONT))
         self.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setPlaceholderText("Run command here. Type '>' to enter command palette mode.")
+        self.setPlaceholderText(
+            "Run command here. Type '>' to enter action search mode. Type '/' to enter "
+            "recent file mode."
+        )
         self.textChanged.connect(self._on_text_changed)
         self._commands = commands
         self._mode = Mode.CLI
@@ -56,6 +59,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         return Context(
             models=self._session.models.list(),
             selectors=_inj.chimerax_selectors(),
+            colors=_inj.chimerax_builtin_colors(),
             wordinfo=winfo,
             filter_volume=_inj.chimerax_filter_volume,
             filter_surface=_inj.chimerax_filter_surface,

@@ -50,9 +50,9 @@ class QCompletionPopup(QSelectablePopup):
             )
     
     def exec_current_item(self):
-        comp = self.current_item_content()
-        self.complete_with(comp.text, comp.type)
-        comp.action.execute(self)
+        if comp := self.current_item_content():
+            self.complete_with(comp.text, comp.type)
+            comp.action.execute(self.parentWidget())
 
     def complete_with(self, comp: str, typ: str):
         parent = self.parentWidget()
@@ -153,7 +153,7 @@ class QCompletionPopup(QSelectablePopup):
         if pref == []:
             return CompletionState(text, [], current_command)
 
-        cmd = current_command or self.parentWidget()._current_completion_state.command
+        cmd = current_command or self.parentWidget()._current_completion_state.command or ""
         args = pref[cmd.count(" ") + 1:]
         if winfo := self.parentWidget()._commands.get(cmd, None):
             # command keyword name/value completion
@@ -285,9 +285,9 @@ class QCommandPalettePopup(QSelectablePopup):
             yield command
 
     def exec_current_item(self):
-        comp = self.current_item_content()
-        self.parentWidget()._close_popups()
-        comp.action.execute(self.parentWidget())
+        if comp := self.current_item_content():
+            self.parentWidget()._close_popups()
+            comp.action.execute(self.parentWidget())
 
     @cache
     def get_all_commands(self) -> list[CommandPaletteAction]:
@@ -306,8 +306,8 @@ class QCommandPalettePopup(QSelectablePopup):
 class QRecentFilePopup(QSelectablePopup):
     def exec_current_item(self):
         self.parentWidget()._close_popups()
-        content = self.current_item_content()
-        content.action.execute(self.parentWidget())
+        if content := self.current_item_content():
+            content.action.execute(self.parentWidget())
     
     def add_items_with_highlight(self, cmp: CompletionState) -> None:
         match_color = load_preference().color_theme.matched
@@ -338,7 +338,10 @@ class QRecentFilePopup(QSelectablePopup):
     
     def _try_show_tooltip_widget(self):
         parent = self.parentWidget()
-        parent._tooltip_widget.show()
+        if self.count() > 0:
+            parent._tooltip_widget.show()
+        else:
+            parent._tooltip_widget.hide()
         if self.isVisible():
             # show next to the cursor
             parent._adjust_tooltip_for_list(self.currentRow())
@@ -356,10 +359,10 @@ class QRecentFilePopup(QSelectablePopup):
 
     def post_show_me(self):
         parent = self.parentWidget()
-        action = self.current_item_content().action
-        if isinstance(action, RecentFileAction):
-            self._try_show_tooltip_widget()
-            parent._tooltip_widget.setBase64Image(action.fs.image)
+        if content := self.current_item_content():
+            if isinstance(action := content.action, RecentFileAction):
+                self._try_show_tooltip_widget()
+                parent._tooltip_widget.setBase64Image(action.fs.image)
         
 class QTooltipPopup(QtW.QTextEdit):
     def __init__(self, parent=None):

@@ -63,8 +63,10 @@ class QSelectablePopup(QtW.QListWidget):
         if content := self.current_item_content():
             self.changed.emit(idx, content)
 
-    def current_item_content(self) -> ItemContent:
-        return self.currentItem().data(Qt.ItemDataRole.UserRole)
+    def current_item_content(self) -> ItemContent | None:
+        if item := self.currentItem():
+            return item.data(Qt.ItemDataRole.UserRole)
+        return None
 
     def goto_next(self):
         self.set_row((self.currentRow() + 1) % self.count())

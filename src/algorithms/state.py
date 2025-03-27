@@ -35,6 +35,7 @@ class Context:
 
     models: list[ModelType] = field(default_factory=list)
     selectors: list[str] = field(default_factory=list)
+    colors: dict[str, str] = field(default_factory=dict)
     wordinfo: WordInfo | None = None
     filter_volume: Callable[[list[ModelType]], list[ModelType]] = lambda x: x
     filter_surface: Callable[[list[ModelType]], list[ModelType]] = lambda x: x
@@ -46,6 +47,7 @@ class Context:
         return Context(
             models=models,
             selectors=self.selectors,
+            colors=self.colors,
             wordinfo=self.wordinfo,
             filter_volume=self.filter_volume,
             filter_surface=self.filter_surface,

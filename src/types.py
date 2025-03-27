@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 from dataclasses import dataclass, field
+from typing import Callable
 
 class Annotation:
     name: str
@@ -43,7 +44,7 @@ class FileSpec:
     """Fake file specification"""
     path: str
     image: str
-    open_command: str
+    open_command: Callable[[], str]
 
 @dataclass
 class ModelType:

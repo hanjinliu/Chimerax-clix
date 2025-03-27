@@ -20,6 +20,7 @@ class QShowHistoryButton(QtW.QPushButton):
         self.setShortcut("Ctrl+H")
         self.setFixedWidth(30)
         self.clicked.connect(self._on_clicked)
+        self._hist_list_widget = None
 
     def _on_clicked(self):
         self._hist_list_widget = QHistoryWidget(self)
@@ -83,6 +84,7 @@ class QHistoryWidget(QtW.QWidget):
         
         self._filter = QHistoryFilter()
         self._history_list = QHistoryList(btn)
+        self._is_dark = False
         self._layout.addWidget(self._filter)
         self._layout.addWidget(self._history_list)
         
@@ -97,6 +99,7 @@ class QHistoryWidget(QtW.QWidget):
         
     def set_theme(self, is_dark: bool):
         self._history_list._model.set_theme(is_dark)
+        self._is_dark = is_dark
 
 class QHistoryList(QtW.QListView):
     def __init__(self, parent: QShowHistoryButton) -> None:
@@ -129,6 +132,8 @@ class QHistoryList(QtW.QListView):
         self.setModel(self._model)
         self.scrollToBottom()
         self.setCurrentIndex(self._model.index(self._model.rowCount() - 1, 0))
+        if list_widget := self._btn._hist_list_widget:
+            list_widget.set_theme(list_widget._is_dark)
 
 class QFilterLineEdit(QtW.QLineEdit):
     def keyPressEvent(self, a0: QtGui.QKeyEvent | None) -> None:
