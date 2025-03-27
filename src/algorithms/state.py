@@ -19,11 +19,11 @@ class CompletionState:
         if self.info is None:
             self.info = [""] * len(self.completions)
         else:
-            assert len(self.info) == len(self.completions)
+            assert len(self.info) == len(self.completions), f"{len(self.info)} != {len(self.completions)}"
         if self.action is None:
             self.action = [NoAction()] * len(self.completions)
         else:
-            assert len(self.action) == len(self.completions)
+            assert len(self.action) == len(self.completions), f"{len(self.action)} != {len(self.completions)}"
 
     @classmethod
     def empty(cls) -> CompletionState:

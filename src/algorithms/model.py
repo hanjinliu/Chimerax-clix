@@ -137,8 +137,8 @@ def complete_chain(
         chain_spec_str, atom_spec = last_word.split("@", 1)
         state = complete_atom(
             context.with_models(models),
-            "@" + atom_spec,
-            command=current_command,
+            last_word="@" + atom_spec,
+            current_command=current_command,
         )
         return CompletionState(
             text=last_word,
@@ -189,8 +189,11 @@ def complete_residue(
         residue_spec_str, atom_spec = last_word.split("@", 1)
         all_atoms = [f"{residue_spec_str}@{_a}" for _a in ALL_ATOMS if _a.startswith(atom_spec)]
         return CompletionState(
-            last_word, all_atoms, current_command, 
-            ["(<i>atom</i>)"] * len(all_atoms), type="residue,atom"
+            last_word, 
+            completions=all_atoms,
+            command=current_command, 
+            info=["(<i>atom</i>)"] * len(all_atoms), 
+            type="residue,atom",
         )
     all_non_std_residues: set[str] = set()
     for model in models:
@@ -200,14 +203,16 @@ def complete_residue(
             f":{_r}" for _r in model.nonstandard_residue_names 
             if _r.startswith(last_word[1:])
         )
-    completions = sorted(all_non_std_residues)
+    non_std_res = sorted(all_non_std_residues)
     # Now, completions is like [":ATP", ":GTP", ...]
     # Adds the standard amino acids
     seed = _make_seed(last_word, ":")
-    completions.extend(f":{_a}" for _a in ALL_AMINO_ACIDS if _a.startswith(seed))
+    aa = [f":{_a}" for _a in ALL_AMINO_ACIDS if _a.startswith(seed)]
     return CompletionState(
-        last_word, completions, current_command, 
-        ["(<i>residue</i>)"] * len(all_non_std_residues) + ["(<i>amino acid</i>)"] * len(ALL_AMINO_ACIDS),
+        last_word, 
+        completions=non_std_res + aa,
+        command=current_command, 
+        info=["(<i>residue</i>)"] * len(non_std_res) + ["(<i>amino acid</i>)"] * len(aa),
         type="residue",
     )
 
@@ -215,8 +220,11 @@ def complete_atom(context: Context, last_word: str, current_command: str | None)
     seed = _make_seed(last_word, "@")
     all_atoms = [f"@{_a}" for _a in ALL_ATOMS if _a.startswith(seed)]
     return CompletionState(
-        last_word, all_atoms, current_command, 
-        ["(<i>atom</i>)"] * len(all_atoms), type="atom",
+        last_word, 
+        completions=all_atoms,
+        command=current_command, 
+        info=["(<i>atom</i>)"] * len(all_atoms), 
+        type="atom",
     )
 
 def _make_seed(last_word: str, prefix: str) -> str:
