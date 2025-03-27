@@ -1,6 +1,10 @@
 from __future__ import annotations
-from typing import Any
+
+from enum import Enum
 from dataclasses import dataclass, field
+
+class Annotation:
+    name: str
 
 @dataclass
 class WordInfo:
@@ -11,18 +15,18 @@ class WordInfo:
 @dataclass
 class CmdDesc:
     """Fake command description"""
-    _required: dict[str, Any] = field(default_factory=dict)
-    _optional: dict[str, Any] = field(default_factory=dict)
-    _keyword: dict[str, Any] = field(default_factory=dict)
+    _required: dict[str, Annotation] = field(default_factory=dict)
+    _optional: dict[str, Annotation] = field(default_factory=dict)
+    _keyword: dict[str, Annotation] = field(default_factory=dict)
     synopsis: str | None = None
     url: str | None = None
     
     @classmethod
     def construct(
         cls,
-        required: dict[str, Any] | None = None,
-        optional: dict[str, Any] | None = None,
-        keyword: dict[str, Any] | None = None,
+        required: dict[str, Annotation] | None = None,
+        optional: dict[str, Annotation] | None = None,
+        keyword: dict[str, Annotation] | None = None,
         synopsis: str | None = None,
         url: str | None = None,
     ) -> CmdDesc:
@@ -34,8 +38,12 @@ class CmdDesc:
             url=url,
         )
 
-class Annotation:
-    name: str
+@dataclass
+class FileSpec:
+    """Fake file specification"""
+    path: str
+    image: str
+    open_command: str
 
 @dataclass
 class ModelType:
@@ -64,3 +72,8 @@ def resolve_cmd_desc(winfo: WordInfo, command_name: str) -> CmdDesc | None:
         _ALWAYS_DEFERRED.add(command_name)
         return None
     return winfo.cmd_desc
+
+class Mode(Enum):
+    CLI = "cli"
+    PALETTE = "palette"
+    RECENT = "recent"

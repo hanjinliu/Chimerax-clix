@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from qtpy import QtGui
-from ..types import resolve_cmd_desc
+from ..types import resolve_cmd_desc, Mode
 from .._preference import load_preference
 
 if TYPE_CHECKING:
@@ -21,6 +21,12 @@ class QCommandHighlighter(QtGui.QSyntaxHighlighter):
     
     def highlightBlock(self, text: str):
         _color_theme = load_preference(force=False).color_theme
+        if self._parent._mode is not Mode.CLI:
+            self.setFormat(0, 1, QtGui.QTextCharFormat())
+            fmt = QtGui.QTextCharFormat()
+            fmt.setForeground(QtGui.QColor(_color_theme.comment))
+            self.setFormat(1, len(text), QtGui.QTextCharFormat())
+            return None
         if text.startswith("#"):
             # comment
             fmt = QtGui.QTextCharFormat()
