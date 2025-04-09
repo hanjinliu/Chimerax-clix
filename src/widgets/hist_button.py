@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 import re
 from qtpy import QtWidgets as QtW, QtCore, QtGui
@@ -78,25 +79,88 @@ class QHistoryListModel(QtCore.QAbstractListModel):
             return super().parent()
 
 class QHistoryWidget(QtW.QWidget):
+    """Widget that will be shown when the user clicks on the history button."""
     def __init__(self, btn: QShowHistoryButton):
         super().__init__()
-        self._layout = QtW.QVBoxLayout(self)
+        _layout = QtW.QVBoxLayout(self)
         
         self._filter = QHistoryFilter()
         self._history_list = QHistoryList(btn)
+        self._insert_btn = QtW.QPushButton("Insert")
+        self._insert_btn.setToolTip("Insert selected commands into the command line")
+        self._insert_btn.setFixedWidth(80)
+        self._insert_btn.clicked.connect(self._insert_btn_clicked)
+        
+        self._copy_btn = QtW.QPushButton("Copy")
+        self._copy_btn.setToolTip("Copy selected commands to clipboard")
+        self._copy_btn.setFixedWidth(80)
+        self._copy_btn.clicked.connect(self._copy_btn_clicked)
+        
+        self._save_btn = QtW.QPushButton("Save ...")
+        self._save_btn.setToolTip("Save selected commands to a file")
+        self._save_btn.setFixedWidth(80)
+        self._save_btn.clicked.connect(self._save_btn_clicked)
+        _footer = QtW.QHBoxLayout()
+        _footer.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
+        _footer.setContentsMargins(0, 0, 0, 0)
+        _footer.addWidget(self._insert_btn)
+        _footer.addWidget(self._copy_btn)
+        _footer.addWidget(self._save_btn)
         self._is_dark = False
-        self._layout.addWidget(self._filter)
-        self._layout.addWidget(self._history_list)
+        _layout.addWidget(self._filter)
+        _layout.addWidget(self._history_list)
+        _layout.addLayout(_footer)
         
         self.setMaximumHeight(500)
+        self._filter._filter_line.textChanged.connect(self._filter_text_changed)
 
-        @self._filter._filter_line.textChanged.connect
-        def _cb(txt: str):
-            if txt == "":
-                self._history_list.set_list(HistoryManager.instance().aslist())
-            texts = self._filter.run_filter(self._history_list._model._history)
-            self._history_list.set_list(texts)
-        
+    def _filter_text_changed(self, txt: str):
+        if txt == "":
+            self._history_list.set_list(HistoryManager.instance().aslist())
+        texts = self._filter.run_filter(self._history_list._model._history)
+        self._history_list.set_list(texts)
+    
+    def _selection_to_text(self) -> str:
+        """Get the selected text from the history list."""
+        selected = self._history_list.selectedIndexes()
+        if not selected:
+            return ""
+        texts = [index.data(QtCore.Qt.ItemDataRole.DisplayRole) for index in selected]
+        return "\n".join(texts)
+    
+    def _cli_widget(self) -> "QCommandLineEdit":
+        return self._history_list._btn._cli_widget
+
+    def _insert_btn_clicked(self):
+        """Insert the selected text into the command line."""
+        if text := self._selection_to_text():
+            cli_widget = self._cli_widget()
+            cli_widget.setText(text)
+            self.hide()
+            cursor = cli_widget.textCursor()
+            cursor.movePosition(QtGui.QTextCursor.MoveOperation.End)
+            cli_widget.setTextCursor(cursor)
+            self.hide()
+            cli_widget.setFocus()
+    
+    def _copy_btn_clicked(self):
+        """Copy the selected text to the clipboard."""
+        if text := self._selection_to_text():
+            clipboard = QtW.QApplication.clipboard()
+            clipboard.setText(text)
+
+    def _save_btn_clicked(self):
+        """Save the selected text to a file."""
+        if text := self._selection_to_text():
+            file_name, _ = QtW.QFileDialog.getSaveFileName(
+                self._cli_widget(),
+                "Save File",
+                "", 
+                "ChimeraX commands (*.cxc);;All Files (*)",
+            )
+            if file_name:
+                Path(file_name).write_text(text)
+
     def set_theme(self, is_dark: bool):
         self._history_list._model.set_theme(is_dark)
         self._is_dark = is_dark
@@ -105,28 +169,10 @@ class QHistoryList(QtW.QListView):
     def __init__(self, parent: QShowHistoryButton) -> None:
         super().__init__(parent)
         self.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.setSelectionMode(QtW.QAbstractItemView.SelectionMode.SingleSelection)
-        self.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+        self.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
         self._btn = parent
-        self.clicked.connect(self.update_with_current_command)
         self.set_list(HistoryManager.instance().aslist())
-    
-    def keyPressEvent(self, e: QtGui.QKeyEvent) -> None:
-        if e.key() == QtCore.Qt.Key.Key_Return:
-            self.update_with_current_command()
-        else:
-            super().keyPressEvent(e)
 
-    def update_with_current_command(self):
-        command = self.currentIndex().data(QtCore.Qt.ItemDataRole.DisplayRole)
-        if isinstance(command, str):
-            self._btn._cli_widget.setText(command)
-            self.hide()
-            cursor = self._btn._cli_widget.textCursor()
-            cursor.movePosition(QtGui.QTextCursor.MoveOperation.End)
-            self._btn._cli_widget.setTextCursor(cursor)
-            self._btn._hist_list_widget.hide()
-    
     def set_list(self, hist: list[str]):
         self._model = QHistoryListModel(hist, self)
         self.setModel(self._model)
@@ -144,9 +190,12 @@ class QFilterLineEdit(QtW.QLineEdit):
             QtCore.Qt.Key.Key_PageDown,
             QtCore.Qt.Key.Key_PageUp
         ):
-            self.parentWidget().parentWidget()._history_list.keyPressEvent(a0)
+            self._history_widget()._history_list.keyPressEvent(a0)
             return None
         return super().keyPressEvent(a0)
+    
+    def _history_widget(self) -> QHistoryWidget:
+        return self.parentWidget().parentWidget()
     
 class QHistoryFilter(QtW.QWidget):
     def __init__(self):
@@ -158,7 +207,13 @@ class QHistoryFilter(QtW.QWidget):
         self._filter_line = QFilterLineEdit()
         
         self._method_choice = QtW.QComboBox()
+
         self._method_choice.addItems(["abc___", "___abc", "__abc__", ".*"])
+        self._method_choice.setItemData(0, "Starts with", QtCore.Qt.ItemDataRole.ToolTipRole)
+        self._method_choice.setItemData(1, "Ends with", QtCore.Qt.ItemDataRole.ToolTipRole)
+        self._method_choice.setItemData(2, "Contains", QtCore.Qt.ItemDataRole.ToolTipRole)
+        self._method_choice.setItemData(3, "Regular expression match", QtCore.Qt.ItemDataRole.ToolTipRole)
+
         self._layout.addWidget(QtW.QLabel("Search:"))
         self._layout.addWidget(self._method_choice)
         self._layout.addWidget(self._filter_line)
@@ -172,6 +227,8 @@ class QHistoryFilter(QtW.QWidget):
             out = [text for text in texts if text.endswith(self._filter_line.text())]
         elif self._method_choice.currentIndex() == 2:
             out = [text for text in texts if self._filter_line.text() in text]
-        else:
+        elif self._method_choice.currentIndex() == 3:
             out = [text for text in texts if re.match(self._filter_line.text(), text) is not None]
+        else:
+            out = texts
         return out
