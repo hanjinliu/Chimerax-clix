@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from functools import cache
-import math
 from pathlib import Path
 from typing import Iterator
 from qtpy import QtWidgets as QtW, QtGui, QtCore
