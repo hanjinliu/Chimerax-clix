@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from qtpy import QtWidgets as QtW
 from typing import Iterator
 from ..action import CommandPaletteAction

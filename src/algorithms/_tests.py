@@ -65,3 +65,17 @@ def test_complete_atom():
     assert "@O" in out.completions
     out = complete_atom(ctx, "@C", "show")
     assert out.completions == ["@Ca", "@Cb", "@C"]
+
+def test_future_annotation():
+    """Test all the files start with `from __future__ import annotations`"""
+    
+    this_path = Path(__file__)
+    root = this_path.parent.parent
+    for path in root.glob("**/*.py"):
+        if path.name == "__init__.py":
+            continue
+        if path == this_path:
+            continue
+        with path.open("r", encoding="utf-8") as f:
+            line = f.readline()
+            assert line.strip() == "from __future__ import annotations", f"File {path} does not start with `from __future__ import annotations`"
