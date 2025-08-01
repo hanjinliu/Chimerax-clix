@@ -30,7 +30,7 @@ def get_context():
 def test_complete_model():
     ctx = get_context()
     out = complete_model(ctx, "#", "show")
-    assert out.completions == ["#1", "#1.1", "#1.2", "#2"]
+    assert out.completions == ["#1", "#2", "#1.1", "#1.2"]
     out = complete_model(ctx, "#1", "show")
     assert out.completions == ["#1", "#1.1", "#1.2"]
     out = complete_model(ctx, "#1.", "show")
