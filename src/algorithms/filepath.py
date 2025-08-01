@@ -21,9 +21,9 @@ def _complete_path_impl(last_word: str) -> list[str] | None:
     if last_word.endswith(("/.", "\\.")):
         # If path string ends with ".", pathlib.Path will ignore it.
         # Here, we replace it with "$" to avoid this behavior.
-        _maybe_path = Path(last_word[:-1].lstrip("'").lstrip('"')).absolute() / "$"
+        _maybe_path = Path(last_word[:-1].lstrip("'").lstrip('"')).expanduser().absolute() / "$"
     else:
-        _maybe_path = Path(last_word.lstrip("'").lstrip('"')).absolute()
+        _maybe_path = Path(last_word.lstrip("'").lstrip('"')).expanduser().absolute()
     if _maybe_path.exists():
         if _maybe_path.is_dir():
             if last_word.endswith(("/", "\\")):

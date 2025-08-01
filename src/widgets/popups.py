@@ -193,7 +193,7 @@ class QCompletionPopup(QSelectablePopup):
         parent = self.parentWidget()
         parent._update_completion_state(allow_auto=False)
         items = parent._current_completion_state.completions
-        
+
         # if nothing to show, do not show the list
         if len(items) == 0:
             self.hide()
@@ -233,7 +233,7 @@ class QCompletionPopup(QSelectablePopup):
     
         if self.count() > 0:
             self.set_row(0)
-        
+
         # one-line suggestion
         if not parent._dont_need_inline_suggestion:
             this_line = parent.textCursor().block().text()
