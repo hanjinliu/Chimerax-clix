@@ -58,7 +58,7 @@ class ModelType:
 class ChainType:
     """Fake chain type"""
     chain_id: str
-    description: str | None
+    description: str | None = None
 
 _ALWAYS_DEFERRED = {"kvfinder"}
 

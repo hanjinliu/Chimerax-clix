@@ -251,13 +251,13 @@ def _natural_sort_models(models: list[ModelType]) -> Iterator[ModelType]:
     
     (i,) comes before (i, j) or (i, j, k).
     """
-    yield_later = []
+    yield_later: "list[ModelType]" = []
     for model in models:
         if len(model.id) == 1:
             yield model
         else:
             yield_later.append(model)
-    yield from sorted(yield_later)
+    yield from sorted(yield_later, key=lambda m: m.id)
 
 class ModelSpec:
     def __init__(self, spec: str):
