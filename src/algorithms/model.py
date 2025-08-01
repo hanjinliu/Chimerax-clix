@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Callable, Iterator
 from .state import CompletionState, Context
+from .._utils import colored
 from ..types import ModelType, ChainType
 
 ALL_ATOMS = ["Ca", "Cb", "C", "N", "O", "OH"]
@@ -94,22 +95,23 @@ def complete_model(
     info: list[str] = []
     seed = _make_seed(last_word, "#")
     if "," in seed or "-" in seed:
+        # seed is like "1-3,5"
         former, sep, num = _rsplit_spec(seed)
         spec_existing = ModelSpec(former)
         # check the former part exists in the model list
         if len(spec_existing.filter(models)) == 0:
             return CompletionState(last_word, [], current_command)
-        for model in models:
+        for model in _natural_sort_models(models):
             model_spec = ".".join(str(_id) for _id in model.id)
             if model_spec.startswith(num) and not spec_existing.contains(model):
                 comps.append(f"#{former}{sep}{model_spec}")
-                info.append("..." + model.name)
+                info.append(colored("..." + model.name, "gray"))
     else:
-        for model in models:
+        for model in _natural_sort_models(models):
             spec = _model_to_spec(model)
             if spec.startswith("#" + seed):
                 comps.append(spec)
-                info.append(model.name)
+                info.append(colored(model.name, "gray"))
     return CompletionState(last_word, comps, current_command, info, type="model")
 
 def complete_chain(
@@ -155,8 +157,10 @@ def complete_chain(
 
     # collect all the available chain IDs
     all_chain_ids: set[str] = set()
+    chain_descriptions: dict[str, str] = {}
     seed = _make_seed(last_word, "/")
     if "," in seed or "-" in seed:
+        # chain ID is a list of IDs such as "/A,B,C"
         former, sep, num = _rsplit_spec(seed)
         spec_existing = ChainSpec(former)
         # check the former part exists in the model list
@@ -169,13 +173,20 @@ def complete_chain(
     else:
         for chain in all_chains:
             if chain.chain_id.startswith(seed):  # chain id does not start with "/"
-                all_chain_ids.add(f"/{chain.chain_id}")
+                chain_id = f"/{chain.chain_id}"
+                all_chain_ids.add(chain_id)
+                if chain.description:
+                    chain_descriptions[chain_id] = colored(chain.description, "gray")
     all_chain_ids = sorted(all_chain_ids)
+    info = [chain_descriptions.get(chain_id, "(<i>chain ID</i>)") for chain_id in all_chain_ids]
 
     # Now, all_chain_ids is like ["/A", "/B", ...]
     return CompletionState(
-        last_word, all_chain_ids, current_command, 
-        ["(<i>chain ID</i>)"] * len(all_chain_ids), type="chain"
+        last_word,
+        all_chain_ids, 
+        current_command, 
+        info=info, 
+        type="chain"
     )
 
 def complete_residue(
@@ -235,6 +246,18 @@ def _make_seed(last_word: str, prefix: str) -> str:
 def _model_to_spec(model):
     return "#" + ".".join(str(_id) for _id in model.id)
 
+def _natural_sort_models(models: list[ModelType]) -> Iterator[ModelType]:
+    """Sort models by their IDs in a natural way.
+    
+    (i,) comes before (i, j) or (i, j, k).
+    """
+    yield_later = []
+    for model in models:
+        if len(model.id) == 1:
+            yield model
+        else:
+            yield_later.append(model)
+    yield from sorted(yield_later)
 
 class ModelSpec:
     def __init__(self, spec: str):
