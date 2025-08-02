@@ -56,6 +56,7 @@ class QSelectablePopup(QtW.QListWidget):
         self.parentWidget().setFocus()
     
     def set_row(self, idx: int):
+        idx = max(0, min(idx, self.count() - 1))
         self.setCurrentRow(idx)
         self.scrollToItem(
             self.currentItem(), QtW.QAbstractItemView.ScrollHint.EnsureVisible

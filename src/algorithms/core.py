@@ -51,12 +51,13 @@ def complete_keyword_name_or_value(
     if keyword_just_typed:
         # if not all the required arguments are given, complete the keyword value
         if not_enough_args:
+            action = TypeErrorAction()
             return CompletionState(
                 text=text,
                 completions=[""],
                 command=current_command,
-                info=[colored("Not enough arguments", "red")],
-                action=[TypeErrorAction()],
+                info=[action.info()],
+                action=[action],
                 type="keyword-value",
             )
         last_annot = cmd_desc._keyword[last_pref]
@@ -205,7 +206,7 @@ def complete_keyword_value(
             completions=["a", "c", "r", "s", "b", "p", "f", "m"],
             command=current_command,
             info=[
-                colored(f"<i>= {word}</i>", "gray")
+                colored(f"<i>= {word}</i>", "green")
                 for word 
                 in ["atoms", "cartoon", "cartoon", "surfaces", "bonds", "pseudobonds", "(filled) rings", "models"]
             ],

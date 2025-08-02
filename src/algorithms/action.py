@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from qtpy.QtWidgets import QColorDialog, QFileDialog
 
-from ..types import FileSpec
+from .._utils import colored
+from ..types import FileSpec, ResidueType
+from ..consts import ONE_LETTER_TO_THREE_LETTER
 
 if TYPE_CHECKING:
     from ..widgets.cli_widget import QCommandLineEdit
@@ -15,12 +17,20 @@ class Action:
 
     def execute(self, widget: "QCommandLineEdit"):
         return NotImplemented
+    
+    def info(self) -> str:
+        """Return a string that describes the action."""
+        return ""
 
 class NoAction(Action):
     def execute(self, widget: "QCommandLineEdit"):
+        # usually results in the fallback completion action
         return None
 
 class TypeErrorAction(Action):
+    def info(self) -> str:
+        return colored("Not enough arguments", "red")
+
     def execute(self, widget: "QCommandLineEdit"):
         return None
 
@@ -88,3 +98,59 @@ class RecentFileAction(Action):
         ctx = widget.get_context(None)
         widget.setText("")
         ctx.run_command(self.fs.open_command())
+
+class ResidueAction(Action):
+    def __init__(self, res: ResidueType):
+        self.res = res
+    
+    def info(self) -> str:
+        """Return a string that describes the residue action."""
+        return f"<b>{self.res.number}: {self.res.name}</b>"
+    
+    def execute(self, widget: "QCommandLineEdit"):
+        text = widget.text()
+        cursor = widget.textCursor()
+        pos_start = cursor.position() - 1
+        if pos_start < 0:
+            return
+        while True:
+            if text[pos_start] in (",", ":", "-"):
+                break
+            if text[pos_start] in ("\n", " ", "\t") or pos_start <= 0:
+                return  # should not reach here, just return
+            pos_start -= 1
+        cursor.clearSelection()
+        cursor.setPosition(pos_start + 1, mode=cursor.MoveMode.KeepAnchor)
+        cursor.removeSelectedText()
+        cursor.insertText(str(self.res.number))
+        widget._close_popups()
+
+class MissingResidueAction(Action):
+    def __init__(self, index: int, char: str):
+        self.index = index
+        self.char = char
+
+    def info(self) -> str:
+        return f"<s>{self.index + 1}: {ONE_LETTER_TO_THREE_LETTER.get(self.char, '---')}</s>"
+
+    def execute(self, widget: "QCommandLineEdit"):
+        return
+
+class SelectResidueAction(Action):
+    def __init__(self, characters: str):
+        self.characters = characters
+
+    def execute(self, widget: "QCommandLineEdit"):
+        from ..widgets import QSelectResiduesDialog
+
+        # open a sequence viewer and let user select residue(s)
+        dialog = QSelectResiduesDialog(self.characters, widget)
+        residues: list[tuple[int, int]] = dialog.exec_select() # inclusive, 1-indexed
+        if residues:
+            entries = []
+            for start, end in residues:
+                if start == end:
+                    entries.append(f"{start}")
+                else:
+                    entries.append(f"{start}-{end}")
+            widget.textCursor().insertText(",".join(entries))

@@ -232,7 +232,7 @@ class QCompletionPopup(QSelectablePopup):
             self._try_show_tooltip_widget()
     
         if self.count() > 0:
-            self.set_row(0)
+            self.set_row(parent._current_completion_state.index_start)
 
         # one-line suggestion
         if not parent._dont_need_inline_suggestion:

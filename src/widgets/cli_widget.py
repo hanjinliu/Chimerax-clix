@@ -67,6 +67,10 @@ class QCommandLineEdit(QtW.QTextEdit):
             get_file_list=_inj.chimerax_file_history(self._session),
             run_command=_inj.chimerax_run(self._session),
         )
+    
+    def clear_completion_state(self):
+        """Clear the current completion state."""
+        self._current_completion_state = CompletionState.empty()
 
     def _update_completion_state(self, allow_auto: bool = False) -> bool:
         plain_text = self.toPlainText()
@@ -126,7 +130,7 @@ class QCommandLineEdit(QtW.QTextEdit):
             HistoryManager.instance().init_iterator()
         finally:
             self.setText("")
-            self._current_completion_state = CompletionState.empty()
+            self.clear_completion_state()
 
     def _open_help_viewer(self, code: str):
         from chimerax.help_viewer import show_url  # type: ignore
@@ -280,7 +284,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         return True
     
     def _event_paste(self, event: QtGui.QKeyEvent):
-        self._current_completion_state = CompletionState.empty()
+        self.clear_completion_state()
         # if html is pasted, converted it to a plain text
         clip = QtW.QApplication.clipboard()
         text = clip.text()
@@ -309,7 +313,7 @@ class QCommandLineEdit(QtW.QTextEdit):
             self.setText(mgr.look_for_next(self.text()))
             self.setTextCursor(cursor)
             if not mgr._is_searching:
-                self._current_completion_state = CompletionState.empty()
+                self.clear_completion_state()
             return True
         self._close_tooltip_and_list()
         return False
@@ -380,7 +384,7 @@ class QCommandLineEdit(QtW.QTextEdit):
             self.insertPlainText("\n")
             self._close_popups()
             self.set_height_for_block_counts()
-            self._current_completion_state = CompletionState.empty()
+            self.clear_completion_state()
             return True
         return False
     

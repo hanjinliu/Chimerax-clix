@@ -14,6 +14,7 @@ class CompletionState:
     action: list[Action] | None = None
     type: str = ""
     keyword_type: type[Annotation] | Annotation | None = None
+    index_start: int = 0
     
     def __post_init__(self):
         if self.info is None:
@@ -34,6 +35,7 @@ class Context:
     """The application context."""
 
     models: list[ModelType] = field(default_factory=list)
+    """List of models (filtered if argument starts with such as `#1/B`)"""
     selectors: list[str] = field(default_factory=list)
     colors: dict[str, str] = field(default_factory=dict)
     wordinfo: WordInfo | None = None
