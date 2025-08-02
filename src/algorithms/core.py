@@ -5,7 +5,6 @@ import itertools
 from typing import Any, Iterable
 
 from .state import CompletionState
-from ..action import NoAction, SelectColor, SelectFile
 from .action import NoAction, TypeErrorAction, SelectColor, SelectFile
 from .filepath import complete_path
 from .state import CompletionState, Context
@@ -91,6 +90,10 @@ def complete_keyword_value(
 
     if is_noarg(last_annot):
         return list_keywords(last_word, current_command, context)
+    elif is_none_arg(last_annot):
+        return _from_values(["none"], last_word, current_command, "none", last_annot)
+    elif is_number(last_annot):
+        return _from_values([], last_word, current_command, "number", last_annot)
     elif is_enumof(last_annot):
         values = to_list_of_str(last_annot.values, startswith=last_word)
         return _from_values(values, last_word, current_command, "enum", last_annot)
@@ -380,6 +383,9 @@ def is_onoff(annotation) -> bool:
 def is_noarg(annotation) -> bool:
     return getattr(annotation, "__name__", "") == "NoArg"
 
+def is_none_arg(annotation) -> bool:
+    return getattr(annotation, "name", "") == "none"
+
 def is_or(annotation) -> bool:
     return type(annotation).__name__ == "Or"
 
@@ -404,3 +410,6 @@ def is_target_arg(annotation) -> bool:
 
 def is_colormap(annotation) -> bool:
     return getattr(annotation, "name", "") == "a colormap"
+
+def is_number(annotation) -> bool:
+    return type(annotation).__name__ in ("IntArg", "FloatArg", "FloatOrDeltaArg")

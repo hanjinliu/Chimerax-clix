@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from qtpy import QtWidgets as QtW
 from typing import Iterator
-from ..action import CommandPaletteAction
+from ..algorithms.action import CommandPaletteAction
 
 def command_palette_actions(main_window: QtW.QMainWindow) -> list[CommandPaletteAction]:
     # Add menu actions

@@ -10,6 +10,9 @@ if TYPE_CHECKING:
 
 class Action:
     """Action to execute when the user selects the item for completion."""
+    def __repr__(self):
+        return f"{self.__class__.__name__}()"
+
     def execute(self, widget: "QCommandLineEdit"):
         return NotImplemented
 
@@ -43,6 +46,9 @@ class SelectFile(Action):
 
     def __init__(self, mode: str):
         self.mode = mode
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(mode={self.mode!r})"
 
     def execute(self, widget: "QCommandLineEdit"):
         if self.mode == "r":

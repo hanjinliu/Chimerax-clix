@@ -109,6 +109,7 @@ class QCommandLineEdit(QtW.QTextEdit):
             return None
         if code.endswith("?"):
             self._open_help_viewer(code[:-1].strip())
+            self.setText("")
             return None
         ctx = self.get_context(None)
         try:
