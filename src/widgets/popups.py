@@ -63,7 +63,6 @@ class QCompletionPopup(QSelectablePopup):
         parent.insertPlainText(text_to_comp)
         parent._update_completion_state(False)
         parent._close_popups()
-        return None
     
     def _selection_changed(self, idx: int, content: ItemContent):
         """Callback of the change in the current list widget index."""
@@ -232,7 +231,7 @@ class QCompletionPopup(QSelectablePopup):
             self._try_show_tooltip_widget()
     
         if self.count() > 0:
-            self.set_row(0)
+            self.set_row(parent._current_completion_state.index_start)
 
         # one-line suggestion
         if not parent._dont_need_inline_suggestion:

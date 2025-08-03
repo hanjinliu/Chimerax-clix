@@ -59,6 +59,19 @@ class ChainType:
     """Fake chain type"""
     chain_id: str
     description: str | None = None
+    residues: list[ResidueType | None] = field(default_factory=list)
+    characters: str = ""
+    numbering_start: int = 1
+
+@dataclass
+class ResidueType:
+    """Fake residue type"""
+    name: str
+    description: str | None = None
+    number: int = field(default=0)
+    one_letter_code: str = "X"
+    is_strand: bool = False
+    is_helix: bool = False
 
 _ALWAYS_DEFERRED = {"kvfinder"}
 

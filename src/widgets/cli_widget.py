@@ -67,6 +67,10 @@ class QCommandLineEdit(QtW.QTextEdit):
             get_file_list=_inj.chimerax_file_history(self._session),
             run_command=_inj.chimerax_run(self._session),
         )
+    
+    def clear_completion_state(self):
+        """Clear the current completion state."""
+        self._current_completion_state = CompletionState.empty()
 
     def _update_completion_state(self, allow_auto: bool = False) -> bool:
         plain_text = self.toPlainText()
@@ -126,7 +130,7 @@ class QCommandLineEdit(QtW.QTextEdit):
             HistoryManager.instance().init_iterator()
         finally:
             self.setText("")
-            self._current_completion_state = CompletionState.empty()
+            self.clear_completion_state()
 
     def _open_help_viewer(self, code: str):
         from chimerax.help_viewer import show_url  # type: ignore
@@ -171,7 +175,6 @@ class QCommandLineEdit(QtW.QTextEdit):
         list_widget = self._current_popup()
         self._show_popup_widget(list_widget)
         list_widget.post_show_me()
-        return None
     
     def _show_inline_suggestion(self, suggested: str):
         if suggested.startswith(" "):
@@ -189,7 +192,6 @@ class QCommandLineEdit(QtW.QTextEdit):
         cursor_point = QtCore.QPoint(tr.x() + 1, tr.y() + dh)
         self._inline_suggestion_widget.move(self.mapToGlobal(cursor_point))
         self._inline_suggestion_widget.show()
-        return None
 
     def _apply_inline_suggestion(self):
         """Accept the inline suggestion and update the line edit."""
@@ -202,7 +204,6 @@ class QCommandLineEdit(QtW.QTextEdit):
             self.setTextCursor(cursor)
         self._inline_suggestion_widget.hide()
         self._close_popups()
-        return True
 
     def _optimize_selectable_popup_geometry(self, popup: QSelectablePopup):
         popup.resizeForContents()
@@ -213,7 +214,6 @@ class QCommandLineEdit(QtW.QTextEdit):
         if is_too_bottom(_height + pos.y()):
             pos = self.mapToGlobal(self.cursorRect().topLeft()) - QtCore.QPoint(0, _height)
         popup.move(pos)
-        return None
     
     def forwarded_keystroke(self, event: QtGui.QKeyEvent):
         """Forward the key event from the main window."""
@@ -228,7 +228,6 @@ class QCommandLineEdit(QtW.QTextEdit):
         ):
             self.setFocus()
         self.event(event)
-        return None
     
     def _keypress_event(self, event: QtGui.QKeyEvent):
         self._dont_need_inline_suggestion = False
@@ -280,7 +279,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         return True
     
     def _event_paste(self, event: QtGui.QKeyEvent):
-        self._current_completion_state = CompletionState.empty()
+        self.clear_completion_state()
         # if html is pasted, converted it to a plain text
         clip = QtW.QApplication.clipboard()
         text = clip.text()
@@ -309,7 +308,7 @@ class QCommandLineEdit(QtW.QTextEdit):
             self.setText(mgr.look_for_next(self.text()))
             self.setTextCursor(cursor)
             if not mgr._is_searching:
-                self._current_completion_state = CompletionState.empty()
+                self.clear_completion_state()
             return True
         self._close_tooltip_and_list()
         return False
@@ -380,7 +379,7 @@ class QCommandLineEdit(QtW.QTextEdit):
             self.insertPlainText("\n")
             self._close_popups()
             self.set_height_for_block_counts()
-            self._current_completion_state = CompletionState.empty()
+            self.clear_completion_state()
             return True
         return False
     
