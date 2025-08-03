@@ -1,3 +1,4 @@
+from __future__ import annotations
 
 ALL_ATOMS = ["Ca", "Cb", "C", "N", "O", "OH"]
 ALL_AMINO_ACIDS = [
