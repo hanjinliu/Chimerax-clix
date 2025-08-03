@@ -105,7 +105,8 @@ class ResidueAction(Action):
     
     def info(self) -> str:
         """Return a string that describes the residue action."""
-        return f"<b>{self.res.number}: {self.res.name}</b>"
+        char = self.res.one_letter_code
+        return f"<b>{self.res.number}: {self.res.name.title()} ({char})</b>"
     
     def execute(self, widget: "QCommandLineEdit"):
         text = widget.text()
@@ -131,26 +132,7 @@ class MissingResidueAction(Action):
         self.char = char
 
     def info(self) -> str:
-        return f"<s>{self.index + 1}: {ONE_LETTER_TO_THREE_LETTER.get(self.char, '---')}</s>"
+        return f"<s>{self.index + 1}: {ONE_LETTER_TO_THREE_LETTER.get(self.char, '---')} ({self.char})</s>"
 
     def execute(self, widget: "QCommandLineEdit"):
         return
-
-class SelectResidueAction(Action):
-    def __init__(self, characters: str):
-        self.characters = characters
-
-    def execute(self, widget: "QCommandLineEdit"):
-        from ..widgets import QSelectResiduesDialog
-
-        # open a sequence viewer and let user select residue(s)
-        dialog = QSelectResiduesDialog(self.characters, widget)
-        residues: list[tuple[int, int]] = dialog.exec_select() # inclusive, 1-indexed
-        if residues:
-            entries = []
-            for start, end in residues:
-                if start == end:
-                    entries.append(f"{start}")
-                else:
-                    entries.append(f"{start}-{end}")
-            widget.textCursor().insertText(",".join(entries))

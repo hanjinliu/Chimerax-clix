@@ -61,6 +61,7 @@ class ChainType:
     description: str | None = None
     residues: list[ResidueType | None] = field(default_factory=list)
     characters: str = ""
+    numbering_start: int = 1
 
 @dataclass
 class ResidueType:

@@ -63,7 +63,6 @@ class QCompletionPopup(QSelectablePopup):
         parent.insertPlainText(text_to_comp)
         parent._update_completion_state(False)
         parent._close_popups()
-        return None
     
     def _selection_changed(self, idx: int, content: ItemContent):
         """Callback of the change in the current list widget index."""
