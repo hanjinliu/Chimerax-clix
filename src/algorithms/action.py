@@ -107,9 +107,9 @@ class ResidueAction(Action):
         """Return a string that describes the residue action."""
         char = self.res.one_letter_code
         if self.res.is_strand:
-            secondary = " α"
-        elif self.res.is_helix:
             secondary = " β"
+        elif self.res.is_helix:
+            secondary = " α"
         else:
             secondary = ""
         return f"<b>{self.res.number}: {self.res.name.title()} ({char}){secondary}</b>"
