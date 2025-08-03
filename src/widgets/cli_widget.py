@@ -175,7 +175,6 @@ class QCommandLineEdit(QtW.QTextEdit):
         list_widget = self._current_popup()
         self._show_popup_widget(list_widget)
         list_widget.post_show_me()
-        return None
     
     def _show_inline_suggestion(self, suggested: str):
         if suggested.startswith(" "):
@@ -193,7 +192,6 @@ class QCommandLineEdit(QtW.QTextEdit):
         cursor_point = QtCore.QPoint(tr.x() + 1, tr.y() + dh)
         self._inline_suggestion_widget.move(self.mapToGlobal(cursor_point))
         self._inline_suggestion_widget.show()
-        return None
 
     def _apply_inline_suggestion(self):
         """Accept the inline suggestion and update the line edit."""
@@ -206,7 +204,6 @@ class QCommandLineEdit(QtW.QTextEdit):
             self.setTextCursor(cursor)
         self._inline_suggestion_widget.hide()
         self._close_popups()
-        return True
 
     def _optimize_selectable_popup_geometry(self, popup: QSelectablePopup):
         popup.resizeForContents()
@@ -217,7 +214,6 @@ class QCommandLineEdit(QtW.QTextEdit):
         if is_too_bottom(_height + pos.y()):
             pos = self.mapToGlobal(self.cursorRect().topLeft()) - QtCore.QPoint(0, _height)
         popup.move(pos)
-        return None
     
     def forwarded_keystroke(self, event: QtGui.QKeyEvent):
         """Forward the key event from the main window."""
@@ -232,7 +228,6 @@ class QCommandLineEdit(QtW.QTextEdit):
         ):
             self.setFocus()
         self.event(event)
-        return None
     
     def _keypress_event(self, event: QtGui.QKeyEvent):
         self._dont_need_inline_suggestion = False

@@ -97,13 +97,13 @@ def complete_model(
             model_spec = ".".join(str(_id) for _id in model.id)
             if model_spec.startswith(num) and not spec_existing.contains(model):
                 comps.append(f"#{former}{sep}{model_spec}")
-                info.append(colored("..." + model.name, "green"))
+                info.append(colored("..." + model.name, "#F88181"))
     else:
         for model in _natural_sort_models(models):
             spec = _model_to_spec(model)
             if spec.startswith("#" + seed):
                 comps.append(spec)
-                info.append(colored(model.name, "green"))
+                info.append(colored(model.name, "#F88181"))
     return CompletionState(last_word, comps, current_command, info, type="model")
 
 def complete_chain(
@@ -168,7 +168,7 @@ def complete_chain(
                 chain_id = f"/{chain.chain_id}"
                 all_chain_ids.add(chain_id)
                 if chain.description:
-                    chain_descriptions[chain_id] = colored(chain.description, "green")
+                    chain_descriptions[chain_id] = colored(chain.description, "#F88181")
     all_chain_ids = sorted(all_chain_ids)
     info = [chain_descriptions.get(chain_id, "(<i>chain ID</i>)") for chain_id in all_chain_ids]
 
@@ -305,8 +305,9 @@ def _get_residue_actions(
     output = []
     num_residues = len(current_chain.residues)
     characters = current_chain.characters
-    _range_start = max(0, res_index - 30)
-    _range_stop = min(num_residues, res_index + 30)
+    num_to_show = 40
+    _range_start = max(0, res_index - num_to_show)
+    _range_stop = min(num_residues, res_index + num_to_show)
     _iter = zip(
         range(_range_start, _range_stop), 
         characters[_range_start:_range_stop]

@@ -106,7 +106,13 @@ class ResidueAction(Action):
     def info(self) -> str:
         """Return a string that describes the residue action."""
         char = self.res.one_letter_code
-        return f"<b>{self.res.number}: {self.res.name.title()} ({char})</b>"
+        if self.res.is_strand:
+            secondary = " α"
+        elif self.res.is_helix:
+            secondary = " β"
+        else:
+            secondary = ""
+        return f"<b>{self.res.number}: {self.res.name.title()} ({char}){secondary}</b>"
     
     def execute(self, widget: "QCommandLineEdit"):
         text = widget.text()
@@ -132,7 +138,7 @@ class MissingResidueAction(Action):
         self.char = char
 
     def info(self) -> str:
-        return f"<s>{self.index + 1}: {ONE_LETTER_TO_THREE_LETTER.get(self.char, '---')} ({self.char})</s>"
+        return f"<s>{self.index}: {ONE_LETTER_TO_THREE_LETTER.get(self.char, '---')} ({self.char})</s>"
 
     def execute(self, widget: "QCommandLineEdit"):
         return

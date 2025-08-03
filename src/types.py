@@ -70,6 +70,8 @@ class ResidueType:
     description: str | None = None
     number: int = field(default=0)
     one_letter_code: str = "X"
+    is_strand: bool = False
+    is_helix: bool = False
 
 _ALWAYS_DEFERRED = {"kvfinder"}
 
