@@ -14,6 +14,7 @@ from chimerax.core.commands import (  # type: ignore
 from chimerax.map import Volume, VolumeSurface  # type: ignore
 from chimerax.core.colors import BuiltinColors, BuiltinColormaps  # type: ignore
 from chimerax.core.filehistory import file_history  # type: ignore
+from chimerax.atomic import StructureData, Pseudobond, Bond  # type: ignore
 from .types import ModelType, FileSpec
 from ._utils import safe_is_subclass
 
@@ -30,6 +31,15 @@ def chimerax_filter_volume(models) -> list[ModelType]:
 
 def chimerax_filter_surface(models) -> list[ModelType]:
     return [m for m in models if isinstance(m, VolumeSurface)]
+
+def chimerax_filter_atom(models) -> list[ModelType]:
+    return [m for m in models if isinstance(m, StructureData)]
+
+def chimerax_filter_pseudo_bond(models) -> list[ModelType]:
+    return [m for m in models if isinstance(m, Pseudobond)]
+
+def chimerax_filter_bond(models) -> list[ModelType]:
+    return [m for m in models if isinstance(m, Bond)]
 
 def chimerax_file_history(session) -> Callable[[], list[FileSpec]]:
     def _get_hist():

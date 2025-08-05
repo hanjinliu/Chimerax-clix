@@ -41,19 +41,15 @@ class Context:
     wordinfo: WordInfo | None = None
     filter_volume: Callable[[list[ModelType]], list[ModelType]] = lambda x: x
     filter_surface: Callable[[list[ModelType]], list[ModelType]] = lambda x: x
+    filter_atom: Callable[[list[ModelType]], list[ModelType]] = lambda x: x
+    filter_pseudo_bond: Callable[[list[ModelType]], list[ModelType]] = lambda x: x
+    filter_bond: Callable[[list[ModelType]], list[ModelType]] = lambda x: x
     get_file_open_mode: Callable[[Any], str] = lambda x: "r"
     get_file_list: Callable[[], list[FileSpec]] = lambda: []
     run_command: Callable[[str], Any] = lambda x: None
 
     def with_models(self, models: list[ModelType]) -> Context:
-        return Context(
-            models=models,
-            selectors=self.selectors,
-            colors=self.colors,
-            wordinfo=self.wordinfo,
-            filter_volume=self.filter_volume,
-            filter_surface=self.filter_surface,
-            get_file_open_mode=self.get_file_open_mode,
-            get_file_list=self.get_file_list,
-            run_command=self.run_command,
-        )
+        # NOTE: asdict deepcopies the fields, which may be unsafe for some types.
+        self_dict = {k: getattr(self, k) for k in self.__dataclass_fields__}
+        self_dict["models"] = models
+        return Context(**self_dict)

@@ -260,6 +260,12 @@ def complete_keyword_value(
             filt = context.filter_volume
         elif is_surface(last_annot):
             filt = context.filter_surface
+        elif is_atomic(last_annot):
+            filt = context.filter_atom
+        elif is_pseudobond(last_annot):
+            filt = context.filter_pseudo_bond
+        elif is_bond(last_annot):
+            filt = context.filter_bond
         else:
             filt = lambda x: x
         if len(last_word) == 0 or last_word.startswith("#"):
@@ -270,7 +276,7 @@ def complete_keyword_value(
             return complete_residue(context, last_word, current_command, model_filter=filt)
         if last_word.startswith("@"):
             return complete_atom(context, last_word, current_command)
-        if is_spec(last_annot):
+        if is_atomic(last_annot):
             map_table = str.maketrans({c: " " for c in "&|~"})
             last_word = last_word.translate(map_table).split(" ")[-1]
             selectors = [s for s in context.selectors if s.startswith(last_word)]
@@ -352,6 +358,28 @@ def is_density_map(annotation) -> bool:
         "a density maps specifier",
     )
 
+def is_atomic(annotation) -> bool:
+    return getattr(annotation, "name", "") in (
+        "a chains specifier",
+        "a residues specifier",
+        "an atoms specifier",
+        "a structures specifier",
+        "an atomic structures specifier",
+        "an objects specifier",
+    )
+
+def is_pseudobond(annotation) -> bool:
+    return getattr(annotation, "name", "") in (
+        "a pseudobonds specifier",
+        "a pseudobond groups specifier",
+    )
+
+def is_bond(annotation) -> bool:
+    return getattr(annotation, "name", "") in (
+        "a bonds specifier",
+        "a bond specifier",
+    )
+
 def is_value_type(annotation) -> bool:
     return getattr(annotation, "name", "") == "numeric value type"
 
@@ -360,11 +388,10 @@ def is_model_like(last_annot) -> bool:
         is_model(last_annot)
         or is_surface(last_annot) 
         or is_density_map(last_annot)
-        or is_spec(last_annot)
+        or is_atomic(last_annot)
+        or is_pseudobond(last_annot)
+        or is_bond(last_annot)
     )
-
-def is_spec(annotation) -> bool:
-    return getattr(annotation, "name", "") == "an objects specifier"
 
 def is_enumof(annotation) -> bool:
     return type(annotation).__name__ == "EnumOf"

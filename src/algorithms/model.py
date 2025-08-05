@@ -170,7 +170,8 @@ def complete_chain(
                 if chain.description:
                     chain_descriptions[chain_id] = colored(chain.description, "#F88181")
     all_chain_ids = sorted(all_chain_ids)
-    info = [chain_descriptions.get(chain_id, "(<i>chain ID</i>)") for chain_id in all_chain_ids]
+    _fallback_desc = colored("(<i>chain ID</i>)", "#F88181")
+    info = [chain_descriptions.get(chain_id, _fallback_desc) for chain_id in all_chain_ids]
 
     # Now, all_chain_ids is like ["/A", "/B", ...]
     return CompletionState(

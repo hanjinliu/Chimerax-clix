@@ -1,5 +1,5 @@
 <BundleInfo name="ChimeraX-clix"
-	    version="0.2.3" package="chimerax.clix"
+	    version="0.2.4" package="chimerax.clix"
   	    minSessionVersion="1" maxSessionVersion="1">
 
   <!-- Additional information about bundle source -->
