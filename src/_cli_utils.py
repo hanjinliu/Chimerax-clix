@@ -13,8 +13,6 @@ def iter_commands(
     parent: str = "",
 ) -> Iterator[tuple[list[str], WordInfo]]:
     for key, value in cmds.items():
-        if key.startswith("~"):
-            continue
         if parent:
             cmd = f"{parent} {key}"
         else:
