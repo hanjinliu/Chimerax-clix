@@ -256,7 +256,9 @@ def complete_keyword_value(
             )
     
     if is_model_like(last_annot):
-        if is_density_map(last_annot):
+        if is_object(last_annot):
+            filt = lambda x: x
+        elif is_density_map(last_annot):
             filt = context.filter_volume
         elif is_surface(last_annot):
             filt = context.filter_surface
@@ -339,33 +341,38 @@ def list_keywords(
         )
     return None
 
-def is_model(annotation) -> bool:
+def is_object(annotation) -> bool:
     return getattr(annotation, "name", "") in (
+        "an object specifier",
+        "an objects specifier",
+    )
+def is_model(annotation) -> bool:
+    return is_object(annotation) or getattr(annotation, "name", "") in (
         "a model specifier", 
         "a models specifier",
         "a model id",  # TODO: is this correct?
     )
 
 def is_surface(annotation) -> bool:
-    return getattr(annotation, "name", "") in (
+    return is_object(annotation) or getattr(annotation, "name", "") in (
         "a surface specifier",
         "a surfaces specifier",
     )
 
 def is_density_map(annotation) -> bool:
-    return getattr(annotation, "name", "") in (
+    return is_object(annotation) or getattr(annotation, "name", "") in (
         "a density map specifier",
         "a density maps specifier",
     )
 
 def is_atomic(annotation) -> bool:
-    return getattr(annotation, "name", "") in (
+    return is_object(annotation) or getattr(annotation, "name", "") in (
         "a chains specifier",
         "a residues specifier",
+        "an atom specifier",
         "an atoms specifier",
         "a structures specifier",
         "an atomic structures specifier",
-        "an objects specifier",
     )
 
 def is_pseudobond(annotation) -> bool:
