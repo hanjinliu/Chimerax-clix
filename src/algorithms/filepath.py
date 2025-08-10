@@ -18,10 +18,13 @@ def complete_path(last_word: str, current_command: str) -> CompletionState | Non
 def _complete_path_impl(last_word: str) -> list[str] | None:
     if last_word == "":
         return None
+    # If path string ends with ".", pathlib.Path will ignore it.
+    # Here, we replace it with "$" to avoid this behavior.
+    if "$" in last_word:
+        return
+    temp_char = "$"
     if last_word.endswith(("/.", "\\.")):
-        # If path string ends with ".", pathlib.Path will ignore it.
-        # Here, we replace it with "$" to avoid this behavior.
-        _maybe_path = Path(last_word[:-1].lstrip("'").lstrip('"')).expanduser().absolute() / "$"
+        _maybe_path = Path(last_word[:-1].lstrip("'").lstrip('"')).expanduser().absolute() / temp_char
     else:
         _maybe_path = Path(last_word.lstrip("'").lstrip('"')).expanduser().absolute()
     if _maybe_path.exists():
@@ -34,10 +37,14 @@ def _complete_path_impl(last_word: str) -> list[str] | None:
                 sep + _p for _p in _iter_upto(p.name for p in _maybe_path.glob("*"))
             ]
             return completions
-    elif _maybe_path.parent.exists() and _maybe_path != Path("/").absolute():
+    elif (
+        _maybe_path.parent.exists()
+        and _maybe_path != Path("/").absolute()
+        and "/" in _maybe_path.as_posix()
+    ):
         _iter = _maybe_path.parent.glob("*")
         pref = _maybe_path.as_posix().rsplit("/", 1)[1]
-        if pref == "$":
+        if pref == temp_char:
             pref = "."
         completions = _iter_upto(
             (p.name for p in _iter if p.name.startswith(pref)),

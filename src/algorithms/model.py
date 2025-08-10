@@ -303,7 +303,7 @@ def _get_residue_actions(
         return [], 0
     if res_index < 0 or res_index >= len(current_chain.residues):
         return [], 0
-    output = []
+    output: "list[MissingResidueAction | ResidueAction]" = []
     num_residues = len(current_chain.residues)
     characters = current_chain.characters
     num_to_show = 40
@@ -320,7 +320,16 @@ def _get_residue_actions(
             output.append(MissingResidueAction(i + i_start, char))
         else:
             output.append(ResidueAction(res))
-    return output, res_index - _range_start - i_start
+    index_start = res_index - _range_start - i_start
+    if index_start < 0 or len(output) <= index_start:
+        index_start = 0
+    else:
+        for i_trial in range(3):
+            if output[index_start].index != res_index:
+                index_start += res_index - output[index_start].index
+            else:
+                break
+    return output, index_start
 
 def _get_chain(
     models: list[ModelType],

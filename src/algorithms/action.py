@@ -131,6 +131,11 @@ class ResidueAction(Action):
         cursor.removeSelectedText()
         cursor.insertText(str(self.res.number))
         widget._close_popups()
+    
+    @property
+    def index(self) -> int:
+        """Return the index of the residue in the chain."""
+        return self.res.number
 
 class MissingResidueAction(Action):
     def __init__(self, index: int, char: str):
