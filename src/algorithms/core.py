@@ -175,11 +175,15 @@ def complete_keyword_value(
         else:
             # empty
             mode = context.get_file_open_mode(last_annot)
-            paths = [""] + [Path.home().as_posix()] + SelectFile.history()
+            try:
+                default_paths = [Path.home().as_posix()]
+            except Exception:
+                default_paths = []
+            paths = [""] + default_paths + SelectFile.history()
             npaths = len(paths) - 1
             info=["<i>Browse ...</i>"] + ["(<i>path</i>)"] * npaths
             action=[SelectFile(mode=mode)] + [NoAction()] * npaths
-        
+
         return CompletionState(
             text=last_word,
             completions=paths,
