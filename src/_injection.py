@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from functools import cache
-from typing import Callable
+from typing import Callable, ParamSpec, TypeVar
 from chimerax.core.commands import (  # type: ignore
     run,
     list_selectors,
+    get_selector_description,
     OpenFileNameArg,
     OpenFileNamesArg,
     SaveFileNameArg,
@@ -18,13 +18,32 @@ from chimerax.atomic import StructureData, Pseudobond, Bond  # type: ignore
 from .types import ModelType, FileSpec
 from ._utils import safe_is_subclass
 
-@cache
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+class cached_function(Callable[_P, _R]):
+    """Custom cached function decorator that supports clearing the cache."""
+    def __init__(self, func: Callable[_P, _R]):
+        self._func = func
+        self._cache = None
+
+    def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _R:
+        if self._cache is None:
+            self._cache = self._func(*args, **kwargs)
+        return self._cache
+    
+    def clear_cache(self):
+        """Clear the cache."""
+        self._cache = None
+
+@cached_function
 def chimerax_selectors() -> list[str]:
     """Iterate over all selectors available in ChimeraX.
     
     This method excludes the atoms and ion groups to avoid too many completions.
     """
-    return [a for a in list_selectors() if a[0] == a[0].lower()]
+    return [a for a in list_selectors()]
+    # return [a for a in list_selectors() if a[0] == a[0].lower()]
 
 def chimerax_filter_volume(models) -> list[ModelType]:
     return [m for m in models if isinstance(m, Volume)]
@@ -65,10 +84,14 @@ def chimerax_run(session):
         return run(session, line)
     return _run
 
-@cache
+@cached_function
 def chimerax_builtin_colors() -> dict[str, str]:
     out: dict[str, str] = {}
     for name, color in BuiltinColors.items():
         if " " not in name:
             out[name] = color.hex()
     return out
+
+def chimerax_get_selector_description(selector: str, session) -> str:
+    """Get the description of a selector."""
+    return get_selector_description(selector, session)

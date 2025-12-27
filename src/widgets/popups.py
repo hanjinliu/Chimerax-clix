@@ -10,11 +10,12 @@ from html import escape
 from .consts import TOOLTIP_FOR_AMINO_ACID
 from ._base import QSelectablePopup, ItemContent, is_too_bottom
 from .._history import HistoryManager
-from ..types import WordInfo, resolve_cmd_desc, FileSpec
+from ..types import Annotation, WordInfo, resolve_cmd_desc, FileSpec
 from ..algorithms.action import CommandPaletteAction, RecentFileAction
 from ..palette import command_palette_actions, color_text_by_match
 from .._preference import load_preference
 from .._utils import colored
+from .._injection import chimerax_get_selector_description
 from ..algorithms import complete_path, complete_keyword_name_or_value, CompletionState
 
 class QCompletionPopup(QSelectablePopup):
@@ -76,14 +77,20 @@ class QCompletionPopup(QSelectablePopup):
             tooltip = TOOLTIP_FOR_AMINO_ACID.get(text.split(":")[-1], "")
             if tooltip:
                 tooltip_widget.setText(tooltip)
-                # adjust the height of the tooltip
-                metrics = QtGui.QFontMetrics(tooltip_widget.font())
-                height = min(280, metrics.height() * (tooltip.count("\n") + 1) + 6)
-                tooltip_widget.setFixedHeight(height)
+                tooltip_widget.update_height_for_tooltip(tooltip)
                 # move the tooltip
                 self._try_show_tooltip_widget()
-        elif parent._current_completion_state.type in ("keyword", "selector"):
+            else:
+                tooltip_widget.hide()
+        elif parent._current_completion_state.type == "keyword":
             pass
+        elif parent._current_completion_state.type == "selector":
+            sel = text.split("@")[-1]
+            if desc := chimerax_get_selector_description(sel, parent._session):
+                tooltip_widget.setText(desc)
+                tooltip_widget.update_height_for_tooltip(desc)
+                # move the tooltip
+                self._try_show_tooltip_widget()
         elif winfo := parent._commands.get(text, None):
             parent._adjust_tooltip_for_list(idx)
             tooltip_widget.setWordInfo(winfo, text)
@@ -106,6 +113,7 @@ class QCompletionPopup(QSelectablePopup):
             tooltip_widget.hide()
         
         if tooltip_widget.isVisible():
+            tooltip_widget.update_height_for_tooltip(tooltip)
             if self.isVisible():
                 # show next to the cursor
                 parent._adjust_tooltip_for_list(self.currentRow())
@@ -363,6 +371,7 @@ class QRecentFilePopup(QSelectablePopup):
                 parent._tooltip_widget.setBase64Image(action.fs.image)
         
 class QTooltipPopup(QtW.QTextEdit):
+    """Scrollable tooltip popup for command help and images."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedWidth(360)
@@ -399,7 +408,6 @@ class QTooltipPopup(QtW.QTextEdit):
                 "<i>(keyword)</i>"
             )
         self.setText("<br>".join(strings))
-        return None
     
     def setBase64Image(self, base64_image: str):
         self.setHtml(f'<img src="data:image/png;base64,{base64_image}">')
@@ -407,5 +415,12 @@ class QTooltipPopup(QtW.QTextEdit):
         length = int(min(size.width(), size.height(), 300)) + 12
         self.setFixedSize(length, length)
 
-    def _type_to_name(self, typ, color):
+    def _type_to_name(self, typ: Annotation, color):
         return colored(escape(typ.name), color)
+
+    def update_height_for_tooltip(self, tooltip: str):
+        metrics = QtGui.QFontMetrics(self.font())
+        height = min(280, metrics.height() * (tooltip.count("\n") + 1) + 12)
+        if self.horizontalScrollBar().isVisible():
+            height += self.horizontalScrollBar().height()
+        self.setFixedHeight(height)
