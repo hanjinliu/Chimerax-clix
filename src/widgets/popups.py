@@ -10,7 +10,7 @@ from html import escape
 from .consts import TOOLTIP_FOR_AMINO_ACID
 from ._base import QSelectablePopup, ItemContent, is_too_bottom
 from .._history import HistoryManager
-from ..types import WordInfo, resolve_cmd_desc, FileSpec
+from ..types import Annotation, WordInfo, resolve_cmd_desc, FileSpec
 from ..algorithms.action import CommandPaletteAction, RecentFileAction
 from ..palette import command_palette_actions, color_text_by_match
 from .._preference import load_preference
@@ -86,14 +86,11 @@ class QCompletionPopup(QSelectablePopup):
             pass
         elif parent._current_completion_state.type == "selector":
             sel = text.split("@")[-1]
-            try:
-                if desc := chimerax_get_selector_description(sel, parent._session):
-                    tooltip_widget.setText(desc)
-                    tooltip_widget.update_height_for_tooltip(desc)
-                    # move the tooltip
-                    self._try_show_tooltip_widget()
-            except Exception as e:
-                print(e)
+            if desc := chimerax_get_selector_description(sel, parent._session):
+                tooltip_widget.setText(desc)
+                tooltip_widget.update_height_for_tooltip(desc)
+                # move the tooltip
+                self._try_show_tooltip_widget()
         elif winfo := parent._commands.get(text, None):
             parent._adjust_tooltip_for_list(idx)
             tooltip_widget.setWordInfo(winfo, text)
@@ -418,7 +415,7 @@ class QTooltipPopup(QtW.QTextEdit):
         length = int(min(size.width(), size.height(), 300)) + 12
         self.setFixedSize(length, length)
 
-    def _type_to_name(self, typ, color):
+    def _type_to_name(self, typ: Annotation, color):
         return colored(escape(typ.name), color)
 
     def update_height_for_tooltip(self, tooltip: str):
