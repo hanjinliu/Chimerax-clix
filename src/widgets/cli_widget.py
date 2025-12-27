@@ -7,6 +7,7 @@ from .consts import _FONT
 from ._base import is_too_bottom
 from .popups import QCompletionPopup, QCommandPalettePopup, QRecentFilePopup, QTooltipPopup, QSelectablePopup
 from .highlighter import QCommandHighlighter
+from .hints import HINTS
 from ..types import WordInfo, resolve_cmd_desc, Mode
 from .._history import HistoryManager
 from ..algorithms import CompletionState, Context
@@ -35,10 +36,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         self.setFont(QtGui.QFont(_FONT))
         self.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setPlaceholderText(
-            "Run command here. Type '>' to enter action search mode. Type '/' to enter "
-            "recent file mode."
-        )
+        self.setPlaceholderText(HINTS.get_primary_hint())
         self.textChanged.connect(self._on_text_changed)
         self._commands = commands
         self._mode = Mode.CLI
@@ -182,7 +180,8 @@ class QCommandLineEdit(QtW.QTextEdit):
         list_widget = self._current_popup()
         self._show_popup_widget(list_widget)
         list_widget.post_show_me()
-    
+        self.setPlaceholderText(HINTS.get_random_hint())
+
     def _show_inline_suggestion(self, suggested: str):
         if suggested.startswith(" "):
             # the first spaces are not visible when using HTML
