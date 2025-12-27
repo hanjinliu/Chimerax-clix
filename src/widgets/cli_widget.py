@@ -13,6 +13,7 @@ from ..algorithms import CompletionState, Context
 from .._utils import colored
 from .._preference import Preference
 from .. import _injection as _inj
+from .._cli_utils import iter_all_commands
 
 class QSuggestionLabel(QtW.QLabel):
     """Label widget for inline suggestion."""
@@ -111,6 +112,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         return text.replace("\u2029", "\n")
 
     def run_command(self):
+        """Run the command in the line edit."""
         code = self.text().rstrip()
         if code == "":
             return None
@@ -121,9 +123,11 @@ class QCommandLineEdit(QtW.QTextEdit):
         ctx = self.get_context(None)
         try:
             for line in code.split("\n"):
-                if line.strip() == "":
+                if (line := line.strip()) == "":
                     continue
                 ctx.run_command(line)
+                self._update_alias(line)  # If alias is set, update the library
+                self._update_namespace(line)
         except Exception:
             HistoryManager.instance().init_iterator(last=code)
             raise
@@ -464,6 +468,17 @@ class QCommandLineEdit(QtW.QTextEdit):
             self._close_tooltip_and_list()
         return suggestion_widget
 
+    def _update_alias(self, line: str):
+        """Update the command registry for alias changes."""
+        if line.startswith(("~alias ", "alias ")):
+            # NOTE: this is not the most efficient way, but is "safest"
+            self._commands = dict(iter_all_commands())
+         
+    def _update_namespace(self, line: str):
+        """Update the command registry for namespace changes."""
+        if line.startswith("name "):
+            _inj.chimerax_selectors.clear_cache()
+            _inj.chimerax_selectors()  # create cache here
 
 _HIDE_POPUPS = {
     QtCore.QEvent.Type.Move,

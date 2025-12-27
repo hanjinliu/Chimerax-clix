@@ -11,7 +11,7 @@ def get_registry() -> WordInfo:
 def iter_commands(
     cmds: dict[str, WordInfo], 
     parent: str = "",
-) -> Iterator[tuple[list[str], WordInfo]]:
+) -> Iterator[tuple[str, WordInfo]]:
     for key, value in cmds.items():
         if parent:
             cmd = f"{parent} {key}"
