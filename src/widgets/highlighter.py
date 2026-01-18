@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from qtpy import QtGui
-from ..types import resolve_cmd_desc, Mode
+from .._types import resolve_cmd_desc, Mode
 from .._preference import load_preference
 
 if TYPE_CHECKING:

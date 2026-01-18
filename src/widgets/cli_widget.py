@@ -8,7 +8,7 @@ from ._base import is_too_bottom
 from .popups import QCompletionPopup, QCommandPalettePopup, QRecentFilePopup, QTooltipPopup, QSelectablePopup
 from .highlighter import QCommandHighlighter
 from .hints import HINTS
-from ..types import WordInfo, resolve_cmd_desc, Mode
+from .._types import WordInfo, resolve_cmd_desc, Mode
 from .._history import HistoryManager
 from ..algorithms import CompletionState, Context
 from .._utils import colored

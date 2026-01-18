@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable
 from .action import Action, NoAction
-from ..types import Annotation, ModelType, WordInfo, FileSpec
+from .._types import Annotation, ModelType, WordInfo, FileSpec
 
 @dataclass
 class CompletionState:

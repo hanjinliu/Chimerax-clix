@@ -15,7 +15,7 @@ from chimerax.map import Volume, VolumeSurface  # type: ignore
 from chimerax.core.colors import BuiltinColors, BuiltinColormaps  # type: ignore
 from chimerax.core.filehistory import file_history  # type: ignore
 from chimerax.atomic import StructureData, Pseudobond, Bond  # type: ignore
-from .types import ModelType, FileSpec
+from ._types import ModelType, FileSpec
 from ._utils import safe_is_subclass
 
 _P = ParamSpec("_P")

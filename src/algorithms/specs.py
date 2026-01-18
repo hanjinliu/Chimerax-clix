@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Iterator, TYPE_CHECKING
 from contextlib import suppress
-from ..types import ModelType, ChainType
+from .._types import ModelType, ChainType
 
 class ModelSpec:
     def __init__(self, spec: str):

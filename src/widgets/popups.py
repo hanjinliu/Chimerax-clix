@@ -10,7 +10,7 @@ from html import escape
 from .consts import TOOLTIP_FOR_AMINO_ACID
 from ._base import QSelectablePopup, ItemContent, is_too_bottom
 from .._history import HistoryManager
-from ..types import Annotation, WordInfo, resolve_cmd_desc, FileSpec
+from .._types import Annotation, WordInfo, resolve_cmd_desc, FileSpec
 from ..algorithms.action import CommandPaletteAction, RecentFileAction
 from ..palette import command_palette_actions, color_text_by_match
 from .._preference import load_preference

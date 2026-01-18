@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from qtpy.QtWidgets import QColorDialog, QFileDialog
 
 from .._utils import colored
-from ..types import FileSpec, ResidueType
+from .._types import FileSpec, ResidueType
 from ..consts import ONE_LETTER_TO_THREE_LETTER
 
 if TYPE_CHECKING:

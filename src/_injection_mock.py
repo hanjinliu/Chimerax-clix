@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from typing import Callable, ParamSpec, TypeVar
-from .types import ModelType, FileSpec
-from ._utils import safe_is_subclass
+from ._types import ModelType, FileSpec
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
