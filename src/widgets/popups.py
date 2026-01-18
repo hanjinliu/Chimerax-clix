@@ -15,8 +15,11 @@ from ..algorithms.action import CommandPaletteAction, RecentFileAction
 from ..palette import command_palette_actions, color_text_by_match
 from .._preference import load_preference
 from .._utils import colored
-from .._injection import chimerax_get_selector_description
 from ..algorithms import complete_path, complete_keyword_name_or_value, CompletionState
+try:
+    from .. import _injection as _inj
+except ImportError:
+    from .. import _injection_mock as _inj  # just for testing
 
 class QCompletionPopup(QSelectablePopup):
     def add_items_with_highlight(self, cmp: CompletionState):
@@ -86,7 +89,7 @@ class QCompletionPopup(QSelectablePopup):
             pass
         elif parent._current_completion_state.type == "selector":
             sel = text.split("@")[-1]
-            if desc := chimerax_get_selector_description(sel, parent._session):
+            if desc := _inj.chimerax_get_selector_description(sel, parent._session):
                 tooltip_widget.setText(desc)
                 tooltip_widget.update_height_for_tooltip(desc)
                 # move the tooltip

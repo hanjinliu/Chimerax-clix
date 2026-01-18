@@ -13,8 +13,11 @@ from .._history import HistoryManager
 from ..algorithms import CompletionState, Context
 from .._utils import colored
 from .._preference import Preference
-from .. import _injection as _inj
 from .._cli_utils import iter_all_commands
+try:
+    from .. import _injection as _inj
+except ImportError:
+    from .. import _injection_mock as _inj  # just for testing
 
 class QSuggestionLabel(QtW.QLabel):
     """Label widget for inline suggestion."""
@@ -55,6 +58,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         self._preference = preference
     
     def get_context(self, winfo: WordInfo) -> Context:
+
         return Context(
             models=self._session.models.list(),
             selectors=_inj.chimerax_selectors(),

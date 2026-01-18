@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from . import complete_path, complete_model, complete_chain, complete_residue, complete_atom, Context
+from ..algorithms import complete_path, complete_model, complete_chain, complete_residue, complete_atom, Context
 from ..types import ChainType, ModelType, WordInfo, CmdDesc
 
 def test_complete_path():
@@ -8,11 +8,11 @@ def test_complete_path():
     os.chdir(cwd)  # cd src
 
     assert complete_path("al", "open").completions == ["algorithms"]
-    assert complete_path("t", "open").completions == ["tool.py", "types.py"]
+    assert complete_path("t", "open").completions == ["tests", "tool.py", "types.py"]
 
     # absolute path
     assert complete_path(f"{cwd}/al", "open").completions == ["algorithms"]
-    assert complete_path(f"{cwd}/t", "open").completions == ["tool.py", "types.py"]
+    assert complete_path(f"{cwd}/t", "open").completions == ["tests", "tool.py", "types.py"]
 
 def get_context():
     models = [
@@ -76,6 +76,8 @@ def test_future_annotation():
             continue
         if path == this_path:
             continue
+        if path.parent.name == "tests":
+            continue  # skip test files
         with path.open("r", encoding="utf-8") as f:
             line = f.readline()
             assert line.strip() == "from __future__ import annotations", f"File {path} does not start with `from __future__ import annotations`"
