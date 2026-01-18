@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Callable, ParamSpec, TypeVar
+from typing import Callable
 from ._types import ModelType, FileSpec
 
-_P = ParamSpec("_P")
-_R = TypeVar("_R")
+def chimerax_model_list(session) -> list[ModelType]:
+    return []
 
 def chimerax_selectors() -> list[str]:
     return []

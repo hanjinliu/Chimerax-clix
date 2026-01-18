@@ -58,9 +58,8 @@ class QCommandLineEdit(QtW.QTextEdit):
         self._preference = preference
     
     def get_context(self, winfo: WordInfo) -> Context:
-
         return Context(
-            models=self._session.models.list(),
+            models=_inj.chimerax_model_list(self._session),
             selectors=_inj.chimerax_selectors(),
             colors=_inj.chimerax_builtin_colors(),
             wordinfo=winfo,
@@ -152,7 +151,6 @@ class QCommandLineEdit(QtW.QTextEdit):
                 raise ValueError(f"Command {code!r} does not have CmdDesc.")
         else:
             raise ValueError(f"Command {code!r} not found.")
-        return None
 
     def _adjust_tooltip_for_list(self, idx: int):
         """Move the tooltip popup next to the list widget."""
@@ -439,7 +437,6 @@ class QCommandLineEdit(QtW.QTextEdit):
     def _close_popups(self):
         self._close_tooltip_and_list()
         self._inline_suggestion_widget.hide()
-        return None
 
     def _close_tooltip_and_list(self):
         self._tooltip_widget.hide()
