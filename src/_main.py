@@ -22,16 +22,16 @@ class CliXAPI(BundleAPI):
 
     @staticmethod
     def register_command(bi, ci, logger):
-        from . import cmd
+        from . import _cmd
         if ci.name == "clix show":
-            func = cmd.clix_show
-            desc = cmd.clix_show_desc
+            func = _cmd.clix_show
+            desc = _cmd.clix_show_desc
         elif ci.name == "clix import history":
-            func = cmd.clix_import_history
-            desc = cmd.clix_import_history_desc
+            func = _cmd.clix_import_history
+            desc = _cmd.clix_import_history_desc
         elif ci.name == "clix preference":
-            func = cmd.clix_preference
-            desc = cmd.clix_preference_desc
+            func = _cmd.clix_preference
+            desc = _cmd.clix_preference_desc
         else:
             raise ValueError(f"trying to register unknown command: {ci.name}")
         
