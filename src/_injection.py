@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, ParamSpec, TypeVar
+from typing import Callable, TYPE_CHECKING
 from chimerax.core.commands import (  # type: ignore
     run,
     list_selectors,
@@ -15,19 +15,22 @@ from chimerax.map import Volume, VolumeSurface  # type: ignore
 from chimerax.core.colors import BuiltinColors, BuiltinColormaps  # type: ignore
 from chimerax.core.filehistory import file_history  # type: ignore
 from chimerax.atomic import StructureData, Pseudobond, Bond  # type: ignore
-from .types import ModelType, FileSpec
+from ._types import ModelType, FileSpec
 from ._utils import safe_is_subclass
 
-_P = ParamSpec("_P")
-_R = TypeVar("_R")
+if TYPE_CHECKING:
+    from typing import ParamSpec, TypeVar
 
-class cached_function(Callable[_P, _R]):
+    _P = ParamSpec("_P")
+    _R = TypeVar("_R")
+
+class cached_function(Callable["_P", "_R"]):
     """Custom cached function decorator that supports clearing the cache."""
-    def __init__(self, func: Callable[_P, _R]):
+    def __init__(self, func: "Callable[_P, _R]"):
         self._func = func
         self._cache = None
 
-    def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _R:
+    def __call__(self, *args: "_P.args", **kwargs: "_P.kwargs") -> "_R":
         if self._cache is None:
             self._cache = self._func(*args, **kwargs)
         return self._cache
@@ -35,6 +38,10 @@ class cached_function(Callable[_P, _R]):
     def clear_cache(self):
         """Clear the cache."""
         self._cache = None
+
+def chimerax_model_list(session) -> list[ModelType]:
+    """Get the list of all models in the current session."""
+    return session.models.list()
 
 @cached_function
 def chimerax_selectors() -> list[str]:

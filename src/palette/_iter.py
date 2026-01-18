@@ -77,10 +77,8 @@ def _find_tabbed_toolbar(main_window: QtW.QMainWindow) -> QtW.QTabWidget:
                 break
     if tb is None:
         raise ValueError("Toolbar not found")
-    ttb = tb.children()[1].children()[0]
+    ttb = tb.children()[1].findChild(QtW.QTabWidget)
     
-    if not isinstance(ttb, QtW.QTabWidget):
-        raise ValueError("Tabbed toolbar not found")
     return ttb
 
 def _find_label_widget(widget: QtW.QWidget) -> QtW.QLabel | None:

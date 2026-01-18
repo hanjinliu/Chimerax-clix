@@ -9,7 +9,7 @@ from .action import NoAction, TypeErrorAction, SelectColor, SelectFile
 from .filepath import complete_path
 from .state import CompletionState, Context
 from .model import complete_model, complete_chain, complete_residue, complete_atom
-from ..types import resolve_cmd_desc
+from .._types import resolve_cmd_desc
 from .._utils import colored, is_hex_color
 
 # For types, see https://github.com/RBVI/ChimeraX/tree/develop/src/bundles/core/src/commands

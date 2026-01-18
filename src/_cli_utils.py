@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Iterator
-from .types import WordInfo
+from ._types import WordInfo
 
 def get_registry() -> WordInfo:
     """Get the ChimeraX command registry"""

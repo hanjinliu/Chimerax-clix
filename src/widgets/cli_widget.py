@@ -8,13 +8,16 @@ from ._base import is_too_bottom
 from .popups import QCompletionPopup, QCommandPalettePopup, QRecentFilePopup, QTooltipPopup, QSelectablePopup
 from .highlighter import QCommandHighlighter
 from .hints import HINTS
-from ..types import WordInfo, resolve_cmd_desc, Mode
+from .._types import WordInfo, resolve_cmd_desc, Mode
 from .._history import HistoryManager
 from ..algorithms import CompletionState, Context
 from .._utils import colored
 from .._preference import Preference
-from .. import _injection as _inj
 from .._cli_utils import iter_all_commands
+try:
+    from .. import _injection as _inj
+except ImportError:
+    from .. import _injection_mock as _inj  # just for testing
 
 class QSuggestionLabel(QtW.QLabel):
     """Label widget for inline suggestion."""
@@ -56,7 +59,7 @@ class QCommandLineEdit(QtW.QTextEdit):
     
     def get_context(self, winfo: WordInfo) -> Context:
         return Context(
-            models=self._session.models.list(),
+            models=_inj.chimerax_model_list(self._session),
             selectors=_inj.chimerax_selectors(),
             colors=_inj.chimerax_builtin_colors(),
             wordinfo=winfo,
@@ -148,7 +151,6 @@ class QCommandLineEdit(QtW.QTextEdit):
                 raise ValueError(f"Command {code!r} does not have CmdDesc.")
         else:
             raise ValueError(f"Command {code!r} not found.")
-        return None
 
     def _adjust_tooltip_for_list(self, idx: int):
         """Move the tooltip popup next to the list widget."""
@@ -435,7 +437,6 @@ class QCommandLineEdit(QtW.QTextEdit):
     def _close_popups(self):
         self._close_tooltip_and_list()
         self._inline_suggestion_widget.hide()
-        return None
 
     def _close_tooltip_and_list(self):
         self._tooltip_widget.hide()

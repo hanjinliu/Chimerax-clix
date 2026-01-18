@@ -5,7 +5,7 @@ from .state import CompletionState, Context
 from .action import ResidueAction, MissingResidueAction, Action
 from .specs import ModelSpec, ChainSpec, ResidueSpec
 from .._utils import colored
-from ..types import ModelType, ChainType
+from .._types import ModelType, ChainType
 from ..consts import ALL_ATOMS, ALL_AMINO_ACIDS
 
 def complete_model(
