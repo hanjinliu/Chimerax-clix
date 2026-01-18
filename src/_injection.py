@@ -24,13 +24,13 @@ if TYPE_CHECKING:
     _P = ParamSpec("_P")
     _R = TypeVar("_R")
 
-class cached_function(Callable[_P, _R]):
+class cached_function(Callable["_P", "_R"]):
     """Custom cached function decorator that supports clearing the cache."""
-    def __init__(self, func: Callable[_P, _R]):
+    def __init__(self, func: "Callable[_P, _R]"):
         self._func = func
         self._cache = None
 
-    def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _R:
+    def __call__(self, *args: "_P.args", **kwargs: "_P.kwargs") -> "_R":
         if self._cache is None:
             self._cache = self._func(*args, **kwargs)
         return self._cache
