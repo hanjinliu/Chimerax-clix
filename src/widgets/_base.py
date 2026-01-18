@@ -127,10 +127,9 @@ class QSelectablePopup(QtW.QListWidget):
             self.setCurrentRow(0)
         if self.count() > 0:
             self.set_row(0)
-        return None
     
     def post_show_me(self):
-        pass
+        """Do nothing by default."""
 
     if TYPE_CHECKING:
         def itemWidget(self, item: QtW.QListWidgetItem) -> QtW.QLabel | None:

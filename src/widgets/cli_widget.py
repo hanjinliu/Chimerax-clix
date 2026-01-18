@@ -185,6 +185,11 @@ class QCommandLineEdit(QtW.QTextEdit):
         self.setPlaceholderText(HINTS.get_random_hint())
 
     def _show_inline_suggestion(self, suggested: str):
+        # Guard against accessing cursor when document might be empty
+        cursor = self.textCursor()
+        if cursor.isNull() or cursor.position() > self.document().characterCount():
+            return
+
         if suggested.startswith(" "):
             # the first spaces are not visible when using HTML
             _stripped = suggested.lstrip()

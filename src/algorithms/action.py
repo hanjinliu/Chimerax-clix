@@ -127,7 +127,11 @@ class ResidueAction(Action):
                 return  # should not reach here, just return
             pos_start -= 1
         cursor.clearSelection()
-        cursor.setPosition(pos_start + 1, mode=cursor.MoveMode.KeepAnchor)
+        # Guard against out-of-range position (macOS issue)
+        target_pos = pos_start + 1
+        if target_pos > len(text):
+            return
+        cursor.setPosition(target_pos, mode=cursor.MoveMode.KeepAnchor)
         cursor.removeSelectedText()
         cursor.insertText(str(self.res.number))
         widget._close_popups()

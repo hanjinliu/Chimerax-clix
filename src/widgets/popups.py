@@ -222,7 +222,6 @@ class QCompletionPopup(QSelectablePopup):
         
         self.add_items_with_highlight(parent._current_completion_state)
         parent._optimize_selectable_popup_geometry(self)
-        return None
     
     def post_show_me(self):
         if self.isVisible():
@@ -246,12 +245,17 @@ class QCompletionPopup(QSelectablePopup):
 
         # one-line suggestion
         if not parent._dont_need_inline_suggestion:
-            this_line = parent.textCursor().block().text()
-            if this_line.startswith("#"):
-                # comment line does not need suggestion
-                return None
-            if suggested := HistoryManager.instance().suggest(this_line):
-                parent._show_inline_suggestion(suggested)
+            # Guard against accessing cursor when document might be empty
+            if parent.document().isEmpty():
+                return
+            cursor = parent.textCursor()
+            if not cursor.isNull() and cursor.position() <= parent.document().characterCount():
+                this_line = cursor.block().text()
+                if this_line.startswith("#"):
+                    # comment line does not need suggestion
+                    return
+                if suggested := HistoryManager.instance().suggest(this_line):
+                    parent._show_inline_suggestion(suggested)
 
 
 class QCommandPalettePopup(QSelectablePopup):

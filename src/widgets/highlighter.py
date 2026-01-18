@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from .cli_widget import QCommandLineEdit
 
 class QCommandHighlighter(QtGui.QSyntaxHighlighter):
+    """Syntax highlighter for QCommandLineEdit."""
     def __init__(self, parent: QCommandLineEdit):
         super().__init__(parent.document())
         self._command_strings = set()
@@ -20,6 +21,8 @@ class QCommandHighlighter(QtGui.QSyntaxHighlighter):
         self._parent = parent
     
     def highlightBlock(self, text: str):
+        if text.strip() == "":
+            return
         _color_theme = load_preference(force=False).color_theme
         if self._parent._mode is not Mode.CLI:
             self.setFormat(0, 1, QtGui.QTextCharFormat())
@@ -35,7 +38,7 @@ class QCommandHighlighter(QtGui.QSyntaxHighlighter):
             return None
         if text.endswith("?"):
             return self.highlightBlock(text[:-1])
-        cur_command = []
+        cur_command: list[str] = []
         cur_start = 0
         cur_stop = 0
         for word in text.split(" "):
@@ -63,8 +66,6 @@ class QCommandHighlighter(QtGui.QSyntaxHighlighter):
                 self.setFormat(cur_start, next_stop, QtGui.QTextCharFormat())
             cur_start = next_stop + 1
             cur_stop += len(word) + 1
-
-        return None
 
     def _is_keyword(self, word: str) -> bool:
         cmd = self._parent._current_completion_state.command

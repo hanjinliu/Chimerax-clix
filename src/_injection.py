@@ -50,7 +50,6 @@ def chimerax_selectors() -> list[str]:
     This method excludes the atoms and ion groups to avoid too many completions.
     """
     return [a for a in list_selectors()]
-    # return [a for a in list_selectors() if a[0] == a[0].lower()]
 
 def chimerax_filter_volume(models) -> list[ModelType]:
     return [m for m in models if isinstance(m, Volume)]
