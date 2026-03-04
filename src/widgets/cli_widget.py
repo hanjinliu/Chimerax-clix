@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
 
@@ -32,6 +33,7 @@ class QSuggestionLabel(QtW.QLabel):
         self.clicked.emit()
         return super().mousePressEvent(event)
 
+LOGGER = logging.getLogger(__name__)
 
 class QCommandLineEdit(QtW.QTextEdit):
     def __init__(self, commands: dict[str, WordInfo], session, preference: Preference):
@@ -56,7 +58,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         self.set_height_for_block_counts()
         self._dont_need_inline_suggestion = False
         self._preference = preference
-    
+
     def get_context(self, winfo: WordInfo) -> Context:
         return Context(
             models=_inj.chimerax_model_list(self._session),
@@ -173,6 +175,8 @@ class QCommandLineEdit(QtW.QTextEdit):
                 each_widget.try_show_me()
 
     def _on_text_changed(self):
+        if txt := self.toPlainText():
+            LOGGER.debug("Text changed: %r", txt)
         self._inline_suggestion_widget.hide()
         # resize the widget
         self.set_height_for_block_counts()
@@ -190,6 +194,7 @@ class QCommandLineEdit(QtW.QTextEdit):
         if cursor.isNull() or cursor.position() > self.document().characterCount():
             return
 
+        LOGGER.debug("Showing inline suggestion: %r", suggested)
         if suggested.startswith(" "):
             # the first spaces are not visible when using HTML
             _stripped = suggested.lstrip()
@@ -209,6 +214,7 @@ class QCommandLineEdit(QtW.QTextEdit):
     def _apply_inline_suggestion(self):
         """Accept the inline suggestion and update the line edit."""
         cursor = self.textCursor()
+        LOGGER.debug("Applying inline suggestion")
         if not cursor.atEnd():
             cursor.movePosition(QtGui.QTextCursor.MoveOperation.EndOfLine)
         if sug := HistoryManager.instance().pop_suggestion():
