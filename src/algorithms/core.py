@@ -350,6 +350,7 @@ def is_object(annotation) -> bool:
         "an object specifier",
         "an objects specifier",
     )
+
 def is_model(annotation) -> bool:
     return is_object(annotation) or getattr(annotation, "name", "") in (
         "a model specifier", 

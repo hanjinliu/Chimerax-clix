@@ -32,6 +32,9 @@ class CliXAPI(BundleAPI):
         elif ci.name == "clix preference":
             func = _cmd.clix_preference
             desc = _cmd.clix_preference_desc
+        elif ci.name == "clix log":
+            func = _cmd.clix_log
+            desc = _cmd.clix_log_desc
         else:
             raise ValueError(f"trying to register unknown command: {ci.name}")
         

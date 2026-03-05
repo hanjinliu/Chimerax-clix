@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import cache
 from pathlib import Path
+from logging import getLogger
 from typing import Iterator
 from qtpy import QtWidgets as QtW, QtGui, QtCore
 from qtpy.QtCore import Qt
@@ -20,6 +21,8 @@ try:
     from .. import _injection as _inj
 except ImportError:
     from .. import _injection_mock as _inj  # just for testing
+    
+LOGGER = getLogger(__name__)
 
 class QCompletionPopup(QSelectablePopup):
     def add_items_with_highlight(self, cmp: CompletionState):
@@ -77,6 +80,7 @@ class QCompletionPopup(QSelectablePopup):
         tooltip_widget = parent._tooltip_widget
         if parent._current_completion_state.type in ("residue", "model,residue"):
             # set residue name
+            LOGGER.debug("Completion state is `residue`")
             tooltip = TOOLTIP_FOR_AMINO_ACID.get(text.split(":")[-1], "")
             if tooltip:
                 tooltip_widget.setText(tooltip)
@@ -86,8 +90,9 @@ class QCompletionPopup(QSelectablePopup):
             else:
                 tooltip_widget.hide()
         elif parent._current_completion_state.type == "keyword":
-            pass
+            LOGGER.debug("Completion state is `keyword`")
         elif parent._current_completion_state.type == "selector":
+            LOGGER.debug("Completion state is `selector`")
             sel = text.split("@")[-1]
             if desc := _inj.chimerax_get_selector_description(sel, parent._session):
                 tooltip_widget.setText(desc)
@@ -100,6 +105,7 @@ class QCompletionPopup(QSelectablePopup):
             self._try_show_tooltip_widget()
 
     def _try_show_tooltip_widget(self):
+        LOGGER.debug("Trying to show/hide tooltip widget")
         parent = self.parentWidget()
         tooltip_widget = parent._tooltip_widget
         tooltip_widget.setFixedWidth(360)
@@ -110,18 +116,24 @@ class QCompletionPopup(QSelectablePopup):
             and "path" not in parent._current_completion_state.type.split(",")
         ):
             # show tooltip because there's something to show
+            LOGGER.debug("New tooltip is coming, show tooltip widget")
             tooltip_widget.show()
             parent.setFocus()
         elif tooltip == "":
+            LOGGER.debug("Tooltip is empty, hideing tooltip widget")
             tooltip_widget.hide()
+        else:
+            LOGGER.debug("Do nothing.")
         
         if tooltip_widget.isVisible():
             tooltip_widget.update_height_for_tooltip(tooltip)
             if self.isVisible():
-                # show next to the cursor
+                # show beside the completion list
+                LOGGER.debug("Showing tooltip widget next to the completion item")
                 parent._adjust_tooltip_for_list(self.currentRow())
             else:
-                # show beside the completion list
+                # show next to the cursor
+                LOGGER.debug("Showing tooltip widget next to the text cursor")
                 _height = tooltip_widget.height()
                 pos = parent.mapToGlobal(parent.cursorRect().bottomRight())
                 if is_too_bottom(pos.y() + _height):
@@ -129,7 +141,6 @@ class QCompletionPopup(QSelectablePopup):
                     height_vector = QtCore.QPoint(0, _height)
                     pos = top_right - height_vector
                 tooltip_widget.move(pos)
-        return None
 
     def _get_completion_list(self, text: str) -> CompletionState:
         if text == "" or text.startswith("#"):

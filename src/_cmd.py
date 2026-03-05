@@ -3,7 +3,7 @@ from __future__ import annotations
 from chimerax.core.commands import CmdDesc, run      # Command description
 from chimerax.core.commands.cli import NoArg, BoolArg, EnumOf
 import json
-from .user_data import COMMAND_HISTORY_PATH
+from .user_data import COMMAND_HISTORY_PATH, read_log
 
 def clix_show(session):
     run(session, "ui tool show clix")
@@ -41,7 +41,6 @@ def clix_import_history(session, append: bool = False, include_errors: bool = Fa
         for code in to_import:
             mgr._history.prepend_unique(code)
     mgr._history.save()
-    return None
 
 clix_import_history_desc = CmdDesc(
     required=[],
@@ -75,7 +74,6 @@ def clix_preference(
         print(new_pref.as_repr())
     if old_pref != new_pref:
         print("Please restart CliX to apply the changes.")
-    return None
 
 clix_preference_desc = CmdDesc(
     keyword=[
@@ -87,4 +85,22 @@ clix_preference_desc = CmdDesc(
         ("show", NoArg),
     ],
     synopsis="set preference of CliX.",
+)
+
+def clix_log(session):
+    from qtpy import QtWidgets as QtW
+
+    log = read_log()
+    widget = QtW.QPlainTextEdit()
+    widget.setParent(session.ui.main_window, widget.windowFlags())
+    widget.setReadOnly(True)
+    widget.setPlainText(log)
+    widget.setWindowTitle("CliX Log")
+    widget.resize(600, 400)
+    widget.show()
+
+clix_log_desc = CmdDesc(
+    required=[], 
+    optional=[],
+    synopsis="show the CliX log.",
 )

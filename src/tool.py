@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from chimerax.core.tools import ToolInstance
 from qtpy import QtWidgets as QtW
+from .user_data import init_log
 from .widgets import QCommandLineEdit, QShowHistoryButton, QShowDialogButton
 from ._preference import load_preference
 
@@ -24,6 +25,7 @@ class ClixTool(ToolInstance):
         self._build_ui()
         if self._preference.auto_focus:
             session.ui.register_for_keystrokes(self._clix_widget)
+        init_log()
 
     def _build_ui(self):
         layout = QtW.QHBoxLayout()
