@@ -8,7 +8,7 @@ from .state import CompletionState
 from .action import NoAction, TypeErrorAction, SelectColor, SelectFile
 from .filepath import complete_path
 from .state import CompletionState, Context
-from .model import complete_model, complete_chain, complete_residue, complete_atom
+from .model import complete_model, complete_chain, complete_residue, complete_atom, complete_model_parent
 from .._types import resolve_cmd_desc
 from .._utils import colored, is_hex_color
 
@@ -294,6 +294,10 @@ def complete_keyword_value(
                     info=["(<i>selector</i>)"] * len(selectors),
                     type="selector",
                 )
+    if is_coordinate_system(last_annot):
+        return complete_model_parent(context, last_word, current_command)
+    elif is_center(last_annot):
+        return complete_model(context, last_word, current_command)
     return None
 
 def _from_values(
@@ -405,6 +409,10 @@ def is_model_like(last_annot) -> bool:
         or is_bond(last_annot)
     )
 
+def is_coordinate_system(annotation) -> bool:
+    # used in such as `move` command
+    return getattr(annotation, "name", "") == "a coordinate-system"
+
 def is_enumof(annotation) -> bool:
     return type(annotation).__name__ == "EnumOf"
 
@@ -412,7 +420,7 @@ def is_dynamic_enum(annotation) -> bool:
     return type(annotation).__name__ == "DynamicEnum"
 
 def is_listof_enumof(annotation) -> bool:
-    return type(annotation).__name__ == "ListOf" and is_enumof(annotation.annotation)
+    return type(annotation).__name__ in ("ListOf", "RepeatOf") and is_enumof(annotation.annotation)
 
 def is_boolean(annotation) -> bool:
     return getattr(annotation, "name", "") == "true or false"
@@ -453,3 +461,6 @@ def is_colormap(annotation) -> bool:
 
 def is_number(annotation) -> bool:
     return type(annotation).__name__ in ("IntArg", "FloatArg", "FloatOrDeltaArg")
+
+def is_center(annotation) -> bool:
+    return getattr(annotation, "name", "") == "center point"

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-
+import logging
+import timeit
 from qtpy import QtGui
 from .._types import resolve_cmd_desc, Mode
 from .._preference import load_preference
 
 if TYPE_CHECKING:
     from .cli_widget import QCommandLineEdit
+
+LOGGER = logging.getLogger(__name__)
 
 class QCommandHighlighter(QtGui.QSyntaxHighlighter):
     """Syntax highlighter for QCommandLineEdit."""
@@ -21,6 +24,15 @@ class QCommandHighlighter(QtGui.QSyntaxHighlighter):
         self._parent = parent
     
     def highlightBlock(self, text: str):
+        t0 = timeit.default_timer()
+        self._highlight_block_impl(text)
+        t1 = timeit.default_timer()
+        dt = (t1 - t0) * 1000
+        dt_slow_ms = 50
+        if dt > dt_slow_ms:
+            LOGGER.warning("Bad performance in highlightBlock: %.1f ms for text %r", dt, text)
+
+    def _highlight_block_impl(self, text: str):
         if text.strip() == "":
             return
         _color_theme = load_preference(force=False).color_theme

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from logging import getLogger
 from qtpy import QtWidgets as QtW
 from typing import Iterator
 from ..algorithms.action import CommandPaletteAction
+
+LOGGER = getLogger(__name__)
 
 def command_palette_actions(main_window: QtW.QMainWindow) -> list[CommandPaletteAction]:
     # Add menu actions
@@ -51,6 +54,8 @@ def iter_toolbar_actions(
 ) -> Iterator[tuple[QtW.QAction, list[str]]]:
     
     tabbed = _find_tabbed_toolbar(main_window)
+    if tabbed is None:
+        return
     for i in range(tabbed.count()):
         tab_name = tabbed.tabText(i)
         toolbar = tabbed.widget(i)
@@ -76,7 +81,8 @@ def _find_tabbed_toolbar(main_window: QtW.QMainWindow) -> QtW.QTabWidget:
                 tb = c.widget()
                 break
     if tb is None:
-        raise ValueError("Toolbar not found")
+        LOGGER.error("Toolbar not found")
+        return
     ttb = tb.children()[1].findChild(QtW.QTabWidget)
     
     return ttb

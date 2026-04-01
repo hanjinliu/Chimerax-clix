@@ -214,10 +214,10 @@ class QCommandLineEdit(QtW.QTextEdit):
     def _apply_inline_suggestion(self):
         """Accept the inline suggestion and update the line edit."""
         cursor = self.textCursor()
-        LOGGER.debug("Applying inline suggestion")
         if not cursor.atEnd():
             cursor.movePosition(QtGui.QTextCursor.MoveOperation.EndOfLine)
         if sug := HistoryManager.instance().pop_suggestion():
+            LOGGER.debug("Applying inline suggestion: %r", sug)
             self.insertPlainText(sug)
             cursor.movePosition(QtGui.QTextCursor.MoveOperation.EndOfLine)
             self.setTextCursor(cursor)

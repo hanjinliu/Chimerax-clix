@@ -76,11 +76,12 @@ class QCompletionPopup(QSelectablePopup):
         if not self.isVisible():
             return
         text = content.text
+        _completion_state = "others"
         parent = self.parentWidget()
         tooltip_widget = parent._tooltip_widget
         if parent._current_completion_state.type in ("residue", "model,residue"):
             # set residue name
-            LOGGER.debug("Completion state is `residue`")
+            _completion_state = "`residue`"
             tooltip = TOOLTIP_FOR_AMINO_ACID.get(text.split(":")[-1], "")
             if tooltip:
                 tooltip_widget.setText(tooltip)
@@ -90,9 +91,9 @@ class QCompletionPopup(QSelectablePopup):
             else:
                 tooltip_widget.hide()
         elif parent._current_completion_state.type == "keyword":
-            LOGGER.debug("Completion state is `keyword`")
+            _completion_state = "`keyword`"
         elif parent._current_completion_state.type == "selector":
-            LOGGER.debug("Completion state is `selector`")
+            _completion_state = "`selector`"
             sel = text.split("@")[-1]
             if desc := _inj.chimerax_get_selector_description(sel, parent._session):
                 tooltip_widget.setText(desc)
@@ -103,9 +104,10 @@ class QCompletionPopup(QSelectablePopup):
             parent._adjust_tooltip_for_list(idx)
             tooltip_widget.setWordInfo(winfo, text)
             self._try_show_tooltip_widget()
+        
+        LOGGER.debug("Items of the completion list changed; text is %r, completion state is %r", text, _completion_state)
 
     def _try_show_tooltip_widget(self):
-        LOGGER.debug("Trying to show/hide tooltip widget")
         parent = self.parentWidget()
         tooltip_widget = parent._tooltip_widget
         tooltip_widget.setFixedWidth(360)
@@ -116,24 +118,20 @@ class QCompletionPopup(QSelectablePopup):
             and "path" not in parent._current_completion_state.type.split(",")
         ):
             # show tooltip because there's something to show
-            LOGGER.debug("New tooltip is coming, show tooltip widget")
             tooltip_widget.show()
             parent.setFocus()
         elif tooltip == "":
-            LOGGER.debug("Tooltip is empty, hideing tooltip widget")
             tooltip_widget.hide()
         else:
-            LOGGER.debug("Do nothing.")
+            pass  # nothing to change
         
         if tooltip_widget.isVisible():
             tooltip_widget.update_height_for_tooltip(tooltip)
             if self.isVisible():
                 # show beside the completion list
-                LOGGER.debug("Showing tooltip widget next to the completion item")
                 parent._adjust_tooltip_for_list(self.currentRow())
             else:
                 # show next to the cursor
-                LOGGER.debug("Showing tooltip widget next to the text cursor")
                 _height = tooltip_widget.height()
                 pos = parent.mapToGlobal(parent.cursorRect().bottomRight())
                 if is_too_bottom(pos.y() + _height):
@@ -406,9 +404,11 @@ class QTooltipPopup(QtW.QTextEdit):
         strings = [f"<b>{colored(command_name, color_theme.command)}</b>"]
         if cmd_desc.synopsis is not None:
             strings.append(cmd_desc.synopsis.replace("\n", "<br>"))
-        strings.append(f"<br><u>{colored('Arguments', 'gray')}</u>")
+        
+        # add arguments if there are any
+        strings_args = [f"<br><u>{colored('Arguments', 'gray')}</u>"]
         for name, typ in cmd_desc._required.items():
-            strings.append(
+            strings_args.append(
                 f"<b>{name}</b>: {self._type_to_name(typ, color_theme.type)}"
             )
         # here, some arguments are both optional and keyword
@@ -416,15 +416,18 @@ class QTooltipPopup(QtW.QTextEdit):
         for name, typ in cmd_desc._optional.items():
             annot = self._type_to_name(typ, color_theme.type)
             if name in keywords:
-                strings.append(f"<b>{name}</b>: {annot} <i>(optional, keyword)</i>")
+                strings_args.append(f"<b>{name}</b>: {annot} <i>(optional, keyword)</i>")
                 keywords.pop(name)
             else:
-                strings.append(f"<b>{name}</b>: {annot} <i>(optional)</i>")
+                strings_args.append(f"<b>{name}</b>: {annot} <i>(optional)</i>")
         for name, typ in keywords.items():
-            strings.append(
+            strings_args.append(
                 f"<b>{name}</b>: {self._type_to_name(typ, color_theme.type)} "
                 "<i>(keyword)</i>"
             )
+        
+        if len(strings_args) > 1:
+            strings.extend(strings_args)
         self.setText("<br>".join(strings))
     
     def setBase64Image(self, base64_image: str):

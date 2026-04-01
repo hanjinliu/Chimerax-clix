@@ -106,6 +106,25 @@ def complete_model(
                 info.append(colored(model.name, "#F88181"))
     return CompletionState(last_word, comps, current_command, info, type="model")
 
+def complete_model_parent(
+    context: Context,
+    last_word: str,
+    current_command: str | None,
+    model_filter: Callable[[list[ModelType]], list[ModelType]] = lambda x: x,
+):
+    models = model_filter(context.models)
+    comps: list[str] = []
+    info: list[str] = []
+    seed = _make_seed(last_word, "#")
+    for model in models:
+        if len(model.id) != 1:
+            continue
+        spec = _model_to_spec(model)
+        if spec.startswith("#" + seed):
+            comps.append(spec)
+            info.append(colored(model.name, "#F88181"))
+    return CompletionState(last_word, comps, current_command, info, type="model")
+
 def complete_chain(
     context: Context,
     last_word: str,
@@ -262,6 +281,7 @@ def _make_seed(last_word: str, prefix: str) -> str:
     return last_word
 
 def _model_to_spec(model: ModelType) -> str:
+    """Convert a model to its specification string, such as "#1.2"."""
     return "#" + ".".join(str(_id) for _id in model.id)
 
 def _natural_sort_models(models: list[ModelType]) -> Iterator[ModelType]:
