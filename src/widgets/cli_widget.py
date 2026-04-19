@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
+import atexit
 
 from .consts import _FONT
 from ._base import is_too_bottom
@@ -58,6 +59,9 @@ class QCommandLineEdit(QtW.QTextEdit):
         self.set_height_for_block_counts()
         self._dont_need_inline_suggestion = False
         self._preference = preference
+        
+        # save history when the application is closed
+        atexit.register(HistoryManager.instance().save)
 
     def get_context(self, winfo: WordInfo) -> Context:
         return Context(
