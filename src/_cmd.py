@@ -88,12 +88,13 @@ clix_preference_desc = CmdDesc(
 )
 
 def clix_log(session):
-    from qtpy import QtWidgets as QtW
+    from qtpy import QtWidgets as QtW, QtGui
 
     log = read_log()
     widget = QtW.QPlainTextEdit()
     widget.setParent(session.ui.main_window, widget.windowFlags())
     widget.setReadOnly(True)
+    widget.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
     widget.setPlainText(log)
     widget.setWindowTitle("CliX Log")
     widget.resize(600, 400)
