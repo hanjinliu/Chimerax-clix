@@ -36,11 +36,11 @@ def clix_import_history(session, append: bool = False, include_errors: bool = Fa
             imported.add(code)
     if append:
         for code in to_import:
-            mgr._history.append_unique(code)
+            mgr.add_code(code)
     else:
         for code in to_import:
             mgr._history.prepend_unique(code)
-    mgr._history.save()
+    mgr.save()
 
 clix_import_history_desc = CmdDesc(
     required=[],

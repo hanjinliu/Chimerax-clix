@@ -3,11 +3,18 @@ from __future__ import annotations
 import logging
 from qtpy import QtWidgets as QtW, QtCore, QtGui
 from qtpy.QtCore import Qt
+import atexit
 
-from .consts import _FONT
 from ._base import is_too_bottom
-from .popups import QCompletionPopup, QCommandPalettePopup, QRecentFilePopup, QTooltipPopup, QSelectablePopup
-from .highlighter import QCommandHighlighter
+from .popups import (
+    QCompletionPopup,
+    QCommandPalettePopup,
+    QRecentFilePopup,
+    QReverseSearchPopup,
+    QTooltipPopup,
+    QSelectablePopup,
+)
+from .highlighter import QCommandLineEditBase
 from .hints import HINTS
 from .._types import WordInfo, resolve_cmd_desc, Mode
 from .._history import HistoryManager
@@ -35,29 +42,26 @@ class QSuggestionLabel(QtW.QLabel):
 
 LOGGER = logging.getLogger(__name__)
 
-class QCommandLineEdit(QtW.QTextEdit):
+class QCommandLineEdit(QCommandLineEditBase):
     def __init__(self, commands: dict[str, WordInfo], session, preference: Preference):
-        super().__init__()
-        self.setFont(QtGui.QFont(_FONT))
-        self.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        super().__init__(commands)
         self.setPlaceholderText(HINTS.get_primary_hint())
-        self.textChanged.connect(self._on_text_changed)
-        self._commands = commands
-        self._mode = Mode.CLI
-        self._current_completion_state = CompletionState.empty()
         self._list_widgets: dict[Mode, QSelectablePopup] = {
             Mode.CLI: QCompletionPopup(self),
             Mode.PALETTE: QCommandPalettePopup(self),
             Mode.RECENT: QRecentFilePopup(self),
+            Mode.REV_SEARCH: QReverseSearchPopup(self),
         }
+        self.textChanged.connect(self._on_text_changed)
         self._tooltip_widget = self._create_tooltip_widget()
         self._inline_suggestion_widget = self._create_suggestion_widget()
         self._session = session
-        self._highlighter = QCommandHighlighter(self)
-        self.set_height_for_block_counts()
+
         self._dont_need_inline_suggestion = False
         self._preference = preference
+        
+        # save history when the application is closed
+        atexit.register(HistoryManager.instance().save)
 
     def get_context(self, winfo: WordInfo) -> Context:
         return Context(
@@ -86,7 +90,7 @@ class QCommandLineEdit(QtW.QTextEdit):
             self._mode = Mode.PALETTE
         elif plain_text.startswith("/"):
             self._mode = Mode.RECENT
-        else:
+        elif self._mode in (Mode.PALETTE, Mode.RECENT):
             self._mode = Mode.CLI
 
         # need to rehighlight if the mode is changed
@@ -98,6 +102,8 @@ class QCommandLineEdit(QtW.QTextEdit):
             self._current_completion_state = CompletionState(plain_text[1:], [])
         elif self._mode is Mode.RECENT:
             self._current_completion_state = CompletionState(plain_text[1:], [])
+        elif self._mode is Mode.REV_SEARCH:
+            self._current_completion_state = CompletionState(plain_text, [])
         else:
             assert isinstance(list_widget, QCompletionPopup)
             cursor = self.textCursor()
@@ -177,6 +183,9 @@ class QCommandLineEdit(QtW.QTextEdit):
     def _on_text_changed(self):
         if txt := self.toPlainText():
             LOGGER.debug("Text changed: %r", txt)
+        if txt == "" and self._mode == Mode.REV_SEARCH:
+            self._mode = Mode.CLI
+
         self._inline_suggestion_widget.hide()
         # resize the widget
         self.set_height_for_block_counts()
@@ -224,16 +233,6 @@ class QCommandLineEdit(QtW.QTextEdit):
         self._inline_suggestion_widget.hide()
         self._close_popups()
 
-    def _optimize_selectable_popup_geometry(self, popup: QSelectablePopup):
-        popup.resizeForContents()
-        if not popup.isVisible():
-            popup.show()
-        _height = popup.height()
-        pos = self.mapToGlobal(self.cursorRect().bottomLeft())
-        if is_too_bottom(_height + pos.y()):
-            pos = self.mapToGlobal(self.cursorRect().topLeft()) - QtCore.QPoint(0, _height)
-        popup.move(pos)
-    
     def forwarded_keystroke(self, event: QtGui.QKeyEvent):
         """Forward the key event from the main window."""
         if self._session.ui.key_intercepted(event.key()):
@@ -251,36 +250,41 @@ class QCommandLineEdit(QtW.QTextEdit):
     def _keypress_event(self, event: QtGui.QKeyEvent):
         self._dont_need_inline_suggestion = False
         done = False
-        if event.key() == Qt.Key.Key_Tab:
+        key = event.key()
+        if key == Qt.Key.Key_Tab:
             done = self._event_tab(event)
-        elif event.key() == Qt.Key.Key_Down:
+        elif key == Qt.Key.Key_Down:
             done = self._event_down(event)
-        elif event.key() == Qt.Key.Key_PageDown:
+        elif key == Qt.Key.Key_PageDown:
             done = self._event_page_down(event)
-        elif event.key() == Qt.Key.Key_Up:
+        elif key == Qt.Key.Key_Up:
             done = self._event_up(event)
-        elif event.key() == Qt.Key.Key_PageUp:
+        elif key == Qt.Key.Key_PageUp:
             done = self._event_page_up(event)
-        elif event.key() == Qt.Key.Key_Right:
+        elif key == Qt.Key.Key_Right:
             done = self._event_right(event)
-        elif event.key() == Qt.Key.Key_End:
+        elif key == Qt.Key.Key_End:
             done = self._event_end(event)
-        elif event.key() == Qt.Key.Key_Left:
+        elif key == Qt.Key.Key_Left:
             self._close_tooltip_and_list()
-        elif event.key() == Qt.Key.Key_Home:
+        elif key == Qt.Key.Key_Home:
             self._close_tooltip_and_list()
-        elif event.key() == Qt.Key.Key_Return:
+        elif key == Qt.Key.Key_Return:
             done = self._event_return(event)
-        elif event.key() == Qt.Key.Key_Escape:
+        elif key == Qt.Key.Key_Escape:
             done = self._event_escape(event)
-        elif event.key() in (Qt.Key.Key_Backspace, Qt.Key.Key_Delete):
+        elif key in (Qt.Key.Key_Backspace, Qt.Key.Key_Delete):
             self._dont_need_inline_suggestion = True
-        elif event.key() == Qt.Key.Key_X and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+        elif key == Qt.Key.Key_X and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             self._dont_need_inline_suggestion = True
-        elif event.key() == Qt.Key.Key_V and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+        elif key == Qt.Key.Key_V and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             done = self._event_paste(event)
-        elif event.key() == Qt.Key.Key_W and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+        elif key == Qt.Key.Key_W and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             done = self._event_delete_word(event)
+        elif key == Qt.Key.Key_R and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self._dont_need_inline_suggestion = True
+            return self._event_ctrl_r(event)
+
         return done
 
     def _event_tab(self, event: QtGui.QKeyEvent):
@@ -292,6 +296,9 @@ class QCommandLineEdit(QtW.QTextEdit):
                 pass
             else:
                 self._show_popup_widget(list_widget)
+        elif self._mode is Mode.REV_SEARCH:
+            assert isinstance(list_widget, QReverseSearchPopup)
+            list_widget.insert_current_item()
         else:
             if list_widget.isVisible():
                 list_widget.goto_next()
@@ -353,8 +360,10 @@ class QCommandLineEdit(QtW.QTextEdit):
             return True
         cursor = self.textCursor()
         if cursor.blockNumber() == 0:
-            self.setText(HistoryManager.instance().look_for_prev(self.text()))
-            self.setTextCursor(cursor)
+            mgr = HistoryManager.instance()
+            if prev_text := mgr.look_for_prev(self.text()):
+                self.setText(prev_text)
+                self.setTextCursor(cursor)
             return True
         self._close_tooltip_and_list()
         return False
@@ -413,6 +422,21 @@ class QCommandLineEdit(QtW.QTextEdit):
             HistoryManager.instance().init_iterator()
         return True
     
+    def _event_ctrl_r(self, event: QtGui.QKeyEvent):
+        if self._mode == Mode.REV_SEARCH:
+            # go to the previous item
+            list_widget = self._current_popup()
+            assert isinstance(list_widget, QReverseSearchPopup)
+            list_widget.goto_previous()
+        else:
+            self._close_popups()
+            self._mode = Mode.REV_SEARCH
+            self._update_completion_state(False)
+            list_widget = self._current_popup()
+            self._show_popup_widget(list_widget)
+            list_widget.post_show_me()
+        return True
+    
     def _current_popup(self) -> QSelectablePopup:
         return self._list_widgets[self._mode]
         
@@ -435,11 +459,6 @@ class QCommandLineEdit(QtW.QTextEdit):
 
         return super().event(event)
 
-    def set_height_for_block_counts(self):
-        nblocks = min(max(self.document().blockCount(), 1), 6)
-        self.setFixedHeight((self.fontMetrics().height() + 2) * nblocks + 6)
-        self.verticalScrollBar().setVisible(nblocks > 2)
-
     def focusOutEvent(self, a0: QtGui.QFocusEvent) -> None:
         if QtW.QApplication.focusWidget():
             self._close_popups()
@@ -452,7 +471,10 @@ class QCommandLineEdit(QtW.QTextEdit):
     def _close_tooltip_and_list(self):
         self._tooltip_widget.hide()
         for widget in self._list_widgets.values():
+            was_visible = widget.isVisible()
             widget.hide()
+            if was_visible:
+                widget.post_hide_me()
 
     def _create_tooltip_widget(self):
         tooltip_widget = QTooltipPopup()

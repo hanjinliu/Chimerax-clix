@@ -10,8 +10,9 @@ from html import escape
 
 from .consts import TOOLTIP_FOR_AMINO_ACID
 from ._base import QSelectablePopup, ItemContent, is_too_bottom
+from .highlighter import QCommandLineEditBase
 from .._history import HistoryManager
-from .._types import Annotation, WordInfo, resolve_cmd_desc, FileSpec
+from .._types import Annotation, WordInfo, resolve_cmd_desc, FileSpec, Mode
 from ..algorithms.action import CommandPaletteAction, RecentFileAction
 from ..palette import command_palette_actions, color_text_by_match
 from .._preference import load_preference
@@ -207,7 +208,6 @@ class QCompletionPopup(QSelectablePopup):
                 current_command = command_name
         return current_command, matched_commands
 
-
     def try_show_me(self):
         parent = self.parentWidget()
         parent._update_completion_state(allow_auto=False)
@@ -230,7 +230,7 @@ class QCompletionPopup(QSelectablePopup):
                 return
         
         self.add_items_with_highlight(parent._current_completion_state)
-        parent._optimize_selectable_popup_geometry(self)
+        self.optimize_geometry()
     
     def post_show_me(self):
         if self.isVisible():
@@ -385,7 +385,101 @@ class QRecentFilePopup(QSelectablePopup):
             if isinstance(action := content.action, RecentFileAction):
                 self._try_show_tooltip_widget()
                 parent._tooltip_widget.setBase64Image(action.fs.image)
-        
+
+class QReverseSearchPopup(QSelectablePopup):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self._prefix = ""
+        self._cmd_view = QCommandLineEditBase(self.parentWidget()._commands)
+        self._cmd_view.setReadOnly(True)
+        self._code_found = False
+
+        item = QtW.QListWidgetItem()
+        self.addItem(item)
+        self.setItemWidget(item, self._cmd_view)
+        self._item = item
+
+    def exec_current_item(self):
+        self.insert_current_item()
+        QtW.QApplication.processEvents()
+        self.parentWidget().run_command()
+    
+    def insert_current_item(self):
+        cli_widget = self.parentWidget()
+        cli_widget._close_popups()
+        cli_widget._mode = Mode.CLI
+        if self._code_found and (text := self._cmd_view.toPlainText()):
+            cli_widget.setPlainText(text)
+            cli_widget.moveCursor(QtGui.QTextCursor.MoveOperation.End)
+
+    def add_items_with_highlight(self, cmp: CompletionState) -> None:
+        self._set_reverse_search_prefix(cmp.text)
+    
+    def _set_reverse_search_prefix(self, text: str) -> bool:
+        self._prefix = text
+        mgr = HistoryManager.instance()
+        mgr.init_iterator()
+        if prev := mgr.look_for_prev(text, self._prefix):
+            self._cmd_view.setText(prev)
+            return True
+        return False
+    
+    def _set_text(self, text: str):
+        self._cmd_view.setText(text)
+        self.resizeForContents()
+    
+    def goto_next(self):
+        mgr = HistoryManager.instance()
+        if next := mgr.look_for_next("", self._prefix, include_memory=False):
+            self._set_text(next)
+
+    def goto_previous(self):
+        mgr = HistoryManager.instance()
+        if prev := mgr.look_for_prev("", self._prefix):
+            self._set_text(prev)
+
+    def post_show_me(self):
+        cli_widget = self.parentWidget()
+        self._cmd_view._current_completion_state = cli_widget.completion_state
+        self._code_found = self._set_reverse_search_prefix(self.parentWidget().text())
+        if self._code_found:
+            self.setCurrentRow(0)
+        else:
+            self._set_text("<span style='color:gray'>No matches</span>")
+            self.setCurrentRow(-1)
+        tooltip_widget = cli_widget._tooltip_widget
+        tooltip_widget.setText(
+            "<b><u>Reverse Search Mode</u></b><br><br>"
+            "<code>Enter</code>: run the command; <code>Tab</code>: insert the command;<br>"
+            "<code>Up</code> or <code>Ctrl+R</code>: go backward; <code>Down</code>: go forward;<br>"
+            "<code>Esc</code>: exit reverse search mode"
+        )
+        cli_widget._tooltip_widget.show()
+        tooltip_widget.setFixedSize(tooltip_widget.document().size().toSize() + QtCore.QSize(18, 18))
+        tooltip_widget.move(
+            self.mapToGlobal(self.rect().topLeft())
+            - QtCore.QPoint(0, tooltip_widget.height() + 2)
+        )
+    
+    def post_hide_me(self):
+        self._prefix = ""
+        self.parentWidget()._mode = Mode.CLI
+
+    def optimize_geometry(self):
+        cli = self.parentWidget()
+        self.resizeForContents()
+        if not self.isVisible():
+            self.show()
+        _height = self.height()
+        # always show above
+        pos = cli.mapToGlobal(cli.rect().topLeft()) - QtCore.QPoint(0, _height)
+        self.move(pos)
+    
+    def resizeForContents(self):
+        self._cmd_view.set_height_for_block_counts()
+        self.setFixedWidth(min(self.parentWidget().width(), 600))
+        self.setFixedHeight(self._cmd_view.height() + 4)
+
 class QTooltipPopup(QtW.QTextEdit):
     """Scrollable tooltip popup for command help and images."""
     def __init__(self, parent=None):

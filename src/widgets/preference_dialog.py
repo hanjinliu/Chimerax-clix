@@ -2,20 +2,21 @@ from __future__ import annotations
 
 from .._preference import Preference, ColorTheme, load_preference, save_preference
 from ._color_widget import QLabeledColorSwatch
-from qtpy import QtWidgets as QtW, QtGui
+from qtpy import QtWidgets as QtW, QtGui, QtCore
 
 class QShowDialogButton(QtW.QPushButton):
     def __init__(self, parent: QtW.QWidget | None = None):
         super().__init__(parent)
         # set standard icon
         self.setText("⚙")
+        self.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         self.setFixedWidth(30)
         self.setToolTip("Show preference dialog")
         self.clicked.connect(self._on_clicked)
     
     def _on_clicked(self):
         dialog = QPreferenceDialog(self.parent())
-        dialog.exec_()
+        dialog.exec()
     
 class QPreferenceDialog(QtW.QDialog):
     def __init__(self, parent: QtW.QWidget | None = None):
