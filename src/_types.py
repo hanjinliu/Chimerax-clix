@@ -92,3 +92,4 @@ class Mode(Enum):
     CLI = "cli"
     PALETTE = "palette"
     RECENT = "recent"
+    REV_SEARCH = "reverse_search"

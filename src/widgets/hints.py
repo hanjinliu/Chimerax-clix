@@ -44,3 +44,4 @@ HINTS.add_hint("`name` command is useful to define custom object selectors. Run 
 HINTS.add_hint("`mousemode` command allows you to customize mouse modes with keyboard modifiers.")
 HINTS.add_hint("`buttonpanel` command creates panel of buttons in the GUI.")
 HINTS.add_hint("`functionkey` command assigns function keys F1-F12 to commands.")
+HINTS.add_hint("Ctrl+R to enter reverse search mode (search with prefix from the end of the history).")

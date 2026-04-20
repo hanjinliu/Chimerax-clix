@@ -3,18 +3,42 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import logging
 import timeit
-from qtpy import QtGui
-from .._types import resolve_cmd_desc, Mode
+from qtpy import QtGui, QtWidgets as QtW
+from qtpy.QtCore import Qt
+from ..algorithms import CompletionState
+from .consts import _FONT
+from .._types import resolve_cmd_desc, Mode, WordInfo
 from .._preference import load_preference
 
-if TYPE_CHECKING:
-    from .cli_widget import QCommandLineEdit
 
 LOGGER = logging.getLogger(__name__)
 
+
+class QCommandLineEditBase(QtW.QTextEdit):
+    def __init__(self, commands: dict[str, WordInfo]):
+        super().__init__()
+        self.setFont(QtGui.QFont(_FONT))
+        self.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._commands = commands
+        self._mode = Mode.CLI
+        self._current_completion_state = CompletionState.empty()
+        
+        self._highlighter = QCommandHighlighter(self)
+        self.set_height_for_block_counts()
+
+    @property
+    def completion_state(self) -> CompletionState:
+        return self._current_completion_state
+
+    def set_height_for_block_counts(self):
+        nblocks = min(max(self.document().blockCount(), 1), 6)
+        self.setFixedHeight((self.fontMetrics().height() + 2) * nblocks + 6)
+        self.verticalScrollBar().setVisible(nblocks > 2)
+
 class QCommandHighlighter(QtGui.QSyntaxHighlighter):
     """Syntax highlighter for QCommandLineEdit."""
-    def __init__(self, parent: QCommandLineEdit):
+    def __init__(self, parent: QCommandLineEditBase):
         super().__init__(parent.document())
         self._command_strings = set()
         for cmd in parent._commands.keys():
@@ -80,7 +104,7 @@ class QCommandHighlighter(QtGui.QSyntaxHighlighter):
             cur_stop += len(word) + 1
 
     def _is_keyword(self, word: str) -> bool:
-        cmd = self._parent._current_completion_state.command
+        cmd = self._parent.completion_state.command
         if cmd is None:
             return False
         winfo = self._parent._commands[cmd]

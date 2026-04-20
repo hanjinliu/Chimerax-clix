@@ -17,6 +17,7 @@ class QShowHistoryButton(QtW.QPushButton):
         super().__init__()
         self._cli_widget = cli
         self.setText("...")
+        self.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         self.setToolTip("Show command history (Ctrl+H)")
         self.setShortcut("Ctrl+H")
         self.setFixedWidth(30)

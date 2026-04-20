@@ -19,6 +19,7 @@ class ItemContent:
     type: str
 
 class QSelectablePopup(QtW.QListWidget):
+    """Base popup list widget that supports item selection and emits signals."""
     changed = QtCore.Signal(int, ItemContent)
 
     def __init__(self, parent=None):
@@ -103,6 +104,7 @@ class QSelectablePopup(QtW.QListWidget):
         return self.parentWidget()._session
     
     def prep_item(self, row: int, count: int) -> tuple[QtW.QListWidgetItem, QtW.QLabel]:
+        """Prepare the list widget item and its QLabel item widget."""
         if count <= row:
             item = QtW.QListWidgetItem()
             current_label = QtW.QLabel()
@@ -122,7 +124,7 @@ class QSelectablePopup(QtW.QListWidget):
         parent = self.parentWidget()
         parent._update_completion_state(allow_auto=False)
         self.add_items_with_highlight(parent._current_completion_state)
-        parent._optimize_selectable_popup_geometry(self)
+        self.optimize_geometry()
         if self.isVisible():
             self.setCurrentRow(0)
         if self.count() > 0:
@@ -130,6 +132,20 @@ class QSelectablePopup(QtW.QListWidget):
     
     def post_show_me(self):
         """Do nothing by default."""
+    
+    def post_hide_me(self):
+        """Do nothing by default."""
+    
+    def optimize_geometry(self):
+        cli = self.parentWidget()
+        self.resizeForContents()
+        if not self.isVisible():
+            self.show()
+        _height = self.height()
+        pos = cli.mapToGlobal(cli.cursorRect().bottomLeft())
+        if is_too_bottom(_height + pos.y()):
+            pos = cli.mapToGlobal(cli.cursorRect().topLeft()) - QtCore.QPoint(0, _height)
+        self.move(pos)
 
     if TYPE_CHECKING:
         def itemWidget(self, item: QtW.QListWidgetItem) -> QtW.QLabel | None:

@@ -63,13 +63,13 @@ class CommandHistory(MutableSequence[str]):
         return self
 
     def append_unique(self, code: str):
-        offset = max(0, len(self._codes) - 200)
+        # find the latest duplicate and remove it.
         try:
-            index = self._codes[offset:].index(code)
+            index = self._codes[::-1].index(code, 0, 200)
         except ValueError:
             pass
         else:
-            del self._codes[offset + index]
+            del self._codes[-1-index]
         self.append(code)
     
     def prepend_unique(self, code: str):
@@ -103,7 +103,9 @@ class BidirectionalIterator:
             return self._data[cur_index + 1]
         return None
     
-    def prev(self) -> str:
+    def prev(self) -> str | None:
+        if self._index == 0:
+            return None
         cur_index = self._index
         self._index = max(self._index - 1, 0)
         return self._data[cur_index]
@@ -168,7 +170,7 @@ class HistoryManager:
         th.start()
         
         self._history_iter = self._history.iter_bidirectional()
-        self._current_input: str = ""
+        self._memory: str = ""
         self._is_searching = False
         self._current_suggestion: str | None = None
         self.__class__._instance = self
@@ -228,20 +230,34 @@ class HistoryManager:
     def init_iterator(self, last: str | None = None):
         self._history_iter = self._history.iter_bidirectional(last=last)
     
-    def look_for_prev(self, current_input: str) -> str:
+    def look_for_prev(self, current_input: str, prefix: str = "") -> str:
         text = self._history_iter.prev()
+        while text is not None and not text.startswith(prefix):
+            text = self._history_iter.prev()
+
         if not self._is_searching:
-            self._current_input = current_input
+            self._memory = current_input
         self._is_searching = True
         return text
     
-    def look_for_next(self, current_input: str) -> str:
+    def look_for_next(
+        self,
+        current_input: str,
+        prefix: str = "",
+        include_memory: bool = True
+    ) -> str:
         if not self._is_searching:
             return current_input
         text = self._history_iter.next()
+        while text is not None and not text.startswith(prefix):
+            text = self._history_iter.next()
+
         if text is None and self._is_searching:
             self._is_searching = False
-            text = self._current_input
+            if include_memory:
+                text = self._memory
+            else:
+                text = current_input
         return text
 
     def suggest(self, current_input: str) -> str | None:
