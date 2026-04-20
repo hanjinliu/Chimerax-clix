@@ -45,10 +45,7 @@ def chimerax_model_list(session) -> list[ModelType]:
 
 @cached_function
 def chimerax_selectors() -> list[str]:
-    """Iterate over all selectors available in ChimeraX.
-    
-    This method excludes the atoms and ion groups to avoid too many completions.
-    """
+    """Iterate over all selectors available in ChimeraX."""
     return [a for a in list_selectors()]
 
 def chimerax_filter_volume(models) -> list[ModelType]:

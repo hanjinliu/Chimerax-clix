@@ -23,10 +23,14 @@ def _complete_path_impl(last_word: str) -> list[str] | None:
     if "$" in last_word:
         return
     temp_char = "$"
-    if last_word.endswith(("/.", "\\.")):
-        _maybe_path = Path(last_word[:-1].lstrip("'").lstrip('"')).expanduser().absolute() / temp_char
-    else:
-        _maybe_path = Path(last_word.lstrip("'").lstrip('"')).expanduser().absolute()
+    try:
+        # expanduser() may fail in some operating systems combined with some setups.
+        if last_word.endswith(("/.", "\\.")):
+            _maybe_path = _resolved_path(_lstrip_quotes(last_word[:-1])) / temp_char
+        else:
+            _maybe_path = _resolved_path(_lstrip_quotes(last_word))
+    except Exception:
+        return None
     if _maybe_path.exists():
         if _maybe_path.is_dir():
             if last_word.endswith(("/", "\\")):
@@ -58,3 +62,11 @@ def _iter_upto(it: Iterable[str], n: int = 64, include_hidden: bool = False) -> 
         return [a for _, a in zip(range(n), it)]
     else:
         return [a for _, a in zip(range(n), it) if not a.startswith(".")]
+
+def _lstrip_quotes(s: str) -> str:
+    return s.lstrip("'").lstrip('"')
+
+def _resolved_path(path: str) -> Path:
+    if "~" in path:
+        return Path(path).expanduser().absolute()
+    return Path(path).absolute()
