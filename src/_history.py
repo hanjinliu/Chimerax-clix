@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import time
 from typing import MutableSequence, Sequence
 import json
+import threading
+import warnings
 from .user_data import CLIX_DATA_DIR, CLIX_HISTORY_FILE
 
 # NOTE: startswith is very fast. When `entries` has 100_000 items, it takes <10 ms
@@ -13,7 +16,7 @@ from .user_data import CLIX_DATA_DIR, CLIX_HISTORY_FILE
 # for TrieTree with 100_000 items.
 
 class CommandHistory(MutableSequence[str]):
-    def __init__(self, codes: Sequence[str] = (), max_size: int = 100_000):
+    def __init__(self, codes: Sequence[str] = (), max_size: int = 20_000):
         self._codes = list(codes)
         self._max_size = max_size
     
@@ -48,7 +51,7 @@ class CommandHistory(MutableSequence[str]):
         return None
     
     @classmethod
-    def load(cls, max_size: int = 100_000) -> CommandHistory:
+    def load(cls, max_size: int = 20_000) -> CommandHistory:
         if not CLIX_HISTORY_FILE.exists():
             return CommandHistory(max_size=max_size)
         try:
@@ -155,9 +158,14 @@ class HistoryManager:
     def __init__(self, history: CommandHistory):
         self._history = history
         self._trietree = TrieTree()
+        self._trietree_initialized = False
         
-        for code in self._history:
-            self._add_to_trietree(code)
+        th = threading.Thread(
+            target=self.prep_trie_tree, 
+            args=(history,),
+            daemon=True,
+        )
+        th.start()
         
         self._history_iter = self._history.iter_bidirectional()
         self._current_input: str = ""
@@ -190,13 +198,29 @@ class HistoryManager:
             self._set_default_in_trietree(code)
     
     def _add_to_trietree(self, code: str):
+        self._wait_until_trietree_initialized()
         for line in code.splitlines():
             self._trietree.add(line)
     
     def _set_default_in_trietree(self, code: str):
+        self._wait_until_trietree_initialized()
         for line in code.splitlines():
             self._trietree.set_default(line)
     
+    def _wait_until_trietree_initialized(self):
+        count = 0
+        while not self._trietree_initialized:
+            time.sleep(0.01)
+            count += 1
+            if count > 200:
+                # wait for 2 seconds at most
+                warnings.warn(
+                    "TrieTree could not be initialized after 2 seconds.",
+                    RuntimeWarning,
+                    stacklevel=1,
+                )
+                break
+
     def save(self):
         """Save the history to file."""
         self._history.save()
@@ -236,3 +260,13 @@ class HistoryManager:
 
     def aslist(self) -> list[str]:
         return list(self._history)
+
+    def prep_trie_tree(self, codes: Sequence[str]):
+        try:
+            _trietree = TrieTree()
+            for code in codes:
+                for line in code.splitlines():
+                    _trietree.add(line)
+            self._trietree = _trietree
+        finally:
+            self._trietree_initialized = True
