@@ -26,9 +26,9 @@ def _complete_path_impl(last_word: str) -> list[str] | None:
     try:
         # expanduser() may fail in some operating systems combined with some setups.
         if last_word.endswith(("/.", "\\.")):
-            _maybe_path = Path(_lstrip_quotes(last_word[:-1])).expanduser().absolute() / temp_char
+            _maybe_path = _resolved_path(_lstrip_quotes(last_word[:-1])) / temp_char
         else:
-            _maybe_path = Path(_lstrip_quotes(last_word)).expanduser().absolute()
+            _maybe_path = _resolved_path(_lstrip_quotes(last_word))
     except Exception:
         return None
     if _maybe_path.exists():
@@ -65,3 +65,8 @@ def _iter_upto(it: Iterable[str], n: int = 64, include_hidden: bool = False) -> 
 
 def _lstrip_quotes(s: str) -> str:
     return s.lstrip("'").lstrip('"')
+
+def _resolved_path(path: str) -> Path:
+    if "~" in path:
+        return Path(path).expanduser().absolute()
+    return Path(path).absolute()

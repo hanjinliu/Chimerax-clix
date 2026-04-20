@@ -285,7 +285,11 @@ def complete_keyword_value(
         if is_atomic(last_annot):
             map_table = str.maketrans({c: " " for c in "&|~"})
             last_word = last_word.translate(map_table).split(" ")[-1]
-            selectors = [s for s in context.selectors if s.startswith(last_word)]
+            if last_word == "":
+                # Too many completions, don't show atoms and ions.
+                selectors = [s for s in context.selectors if s[0].islower()]
+            else:
+                selectors = [s for s in context.selectors if s.startswith(last_word)]
             if selectors:
                 return CompletionState(
                     last_word,
