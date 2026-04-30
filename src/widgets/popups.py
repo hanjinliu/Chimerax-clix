@@ -63,10 +63,11 @@ class QCompletionPopup(QSelectablePopup):
 
     def complete_with(self, comp: str, typ: str):
         parent = self.parentWidget()
+        cur_text = parent._current_completion_state.text
         if "path" in typ.split(","):
-            _n = len(parent._current_completion_state.text.rsplit("/", 1)[-1].rsplit("\\", 1)[-1])
+            _n = len(cur_text.rsplit("/", 1)[-1].rsplit("\\", 1)[-1])
         else:
-            _n = len(parent._current_completion_state.text)
+            _n = len(cur_text)
         text_to_comp = comp[_n:]
         parent.insertPlainText(text_to_comp)
         parent._update_completion_state(False)
