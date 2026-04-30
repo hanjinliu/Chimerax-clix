@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from pathlib import Path
 import itertools
 from typing import Any, Iterable
@@ -135,19 +136,20 @@ def complete_keyword_value(
         color_hist = SelectColor.history()
         completions = []
         info = []
+        SQ = "▉"
         if last_word == "":
             completions = [""] + color_hist
-            info = ["<i>Select a color ...</i>"] + [colored("▉", c) for c in color_hist]
+            info = ["<i>Select a color ...</i>"] + [colored(SQ, c) for c in color_hist]
             action = [SelectColor()] + [NoAction()] * len(color_hist)
         elif last_word.startswith("#"):
             if len(last_word) < 7:
                 for hex in color_hist:
                     if hex.startswith(last_word.lower()):
                         completions.append(hex)
-                        info.append(colored("▉", hex))
+                        info.append(colored(SQ, hex))
             elif is_hex_color(last_word):
                 completions.append(last_word)
-                info.append(colored("▉", last_word))
+                info.append(colored(SQ, last_word))
             else:
                 pass
             action = [NoAction()] * len(completions)
@@ -155,7 +157,7 @@ def complete_keyword_value(
             for name, hex in context.colors.items():
                 if name.startswith(last_word):
                     completions.append(name)
-                    info.append(colored("▉", hex))
+                    info.append(colored(SQ, hex))
             action = [NoAction()] * len(completions)
         return CompletionState(
             text=last_word,
@@ -424,7 +426,16 @@ def is_dynamic_enum(annotation) -> bool:
     return type(annotation).__name__ == "DynamicEnum"
 
 def is_listof_enumof(annotation) -> bool:
-    return type(annotation).__name__ in ("ListOf", "RepeatOf") and is_enumof(annotation.annotation)
+    if type(annotation).__name__ == "ListOf":
+        return is_enumof(annotation.annotation)
+    elif type(annotation).__name__ == "RepeatOf":
+        # NOTE: RepeatOf does not explicitly store the child annotation - it stores
+        # the child parse function as an attribute (self.parse = annotation.parse).
+        # Because this completely relies on the implementation of RepeatOf, we suppress
+        # any exception here.
+        with suppress(Exception):
+            return is_enumof(annotation.parse.__self__.__class__)
+    return False
 
 def is_boolean(annotation) -> bool:
     return getattr(annotation, "name", "") == "true or false"
