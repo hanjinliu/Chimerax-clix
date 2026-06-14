@@ -318,7 +318,8 @@ def _get_residue_actions(
     model_spec: ModelSpec,
     chain_spec: ChainSpec,
 ) -> tuple[list[Action], int]:
-    current_chain = _get_chain(context.models, model_spec, chain_spec)
+    structure_models = context.filter_atom(context.models)
+    current_chain = _get_chain(structure_models, model_spec, chain_spec)
     if current_chain is None:
         return [], 0
     if res_index < 0 or res_index >= len(current_chain.residues):

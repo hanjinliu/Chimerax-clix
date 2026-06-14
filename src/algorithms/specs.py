@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Iterator, TYPE_CHECKING
+from typing import Iterator
 from contextlib import suppress
 from .._types import ModelType, ChainType
 
